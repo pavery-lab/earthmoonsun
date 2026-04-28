@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun · Earth · Moon — 3D</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Cormorant+Garamond:wght@300;600&display=swap');
+
+  :root {
+    --bg: #03050d;
+    --panel: rgba(5,10,25,0.82);
+    --border: rgba(255,255,255,0.08);
+    --text: #8899bb;
+    --accent: #dbe8ff;
+    --dim: #3a4a6a;
+    --gold: #ffd045;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    overflow: hidden;
+  }
+
+  #three-canvas {
+    position: fixed; inset: 0;
+    display: block;
+    cursor: grab;
+  }
+  #three-canvas:active { cursor: grabbing; }
+
+  /* ── HUD overlay ── */
+  #hud {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Top bar */
+  #top-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 18px 24px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: linear-gradient(to bottom, rgba(3,5,13,0.9), transparent);
+    pointer-events: none;
+  }
+
+  .title h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 1.8rem;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .title .sub {
+    font-size: 0.55rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+
+  #clock {
+    text-align: right;
+    font-size: 0.65rem;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  #clock .dateline { color: var(--accent); font-weight: 700; }
+
+  #date-editor {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: flex-end;
+    pointer-events: all;
+  }
+
+  #date-input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 4px 7px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    width: 155px;
+    /* override browser date-input styles */
+    color-scheme: dark;
+  }
+  #date-input:hover, #date-input:focus {
+    border-color: rgba(255,208,69,0.5);
+    background: rgba(255,208,69,0.06);
+  }
+
+  #date-go {
+    background: rgba(255,208,69,0.12);
+    border: 1px solid rgba(255,208,69,0.35);
+    border-radius: 4px;
+    color: var(--gold);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+    pointer-events: all;
+  }
+  #date-go:hover { background: rgba(255,208,69,0.22); border-color: rgba(255,208,69,0.6); }
+
+  #date-now {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    padding: 4px 7px;
+    cursor: pointer;
+    transition: all 0.18s;
+    pointer-events: all;
+  }
+  #date-now:hover { background: rgba(255,255,255,0.11); color: var(--accent); }
+
+  /* Bottom info cards */
+  #info-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 0 20px 18px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    background: linear-gradient(to top, rgba(3,5,13,0.9), transparent);
+    pointer-events: none;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    backdrop-filter: blur(8px);
+  }
+  .card .lbl {
+    font-size: 0.54rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 5px;
+  }
+  .card .val {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-weight: 700;
+    line-height: 1.55;
+  }
+  .card .val span { font-weight: 400; color: var(--text); font-size: 0.63rem; }
+
+  /* Right-side controls */
+  #controls {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: all;
+  }
+
+  .ctrl-group {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    backdrop-filter: blur(8px);
+  }
+  .ctrl-group .clbl {
+    font-size: 0.52rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 7px;
+  }
+
+  .btn-col { display: flex; flex-direction: column; gap: 4px; }
+  .btn-row-g { display: flex; gap: 4px; }
+
+  .btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.09);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 5px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+  .btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); }
+  .btn.active { color: var(--gold); border-color: rgba(255,208,69,0.45); background: rgba(255,208,69,0.08); }
+
+  /* View preset indicator */
+  #view-label {
+    position: absolute;
+    left: 50%;
+    top: 72px;
+    transform: translateX(-50%);
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dim);
+    pointer-events: none;
+    transition: opacity 1s;
+  }
+
+  /* Help hint */
+  #hint {
+    position: absolute;
+    bottom: 130px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.54rem;
+    letter-spacing: 0.14em;
+    color: var(--dim);
+    pointer-events: none;
+    text-align: center;
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="three-canvas"></canvas>
+
+<div id="hud">
+  <div id="top-bar">
+    <div class="title">
+      <h1>Sun · Earth · Moon</h1>
+      <div class="sub">3D Real-time Orbital Simulator</div>
+    </div>
+    <div id="clock">
+      <div id="clock-display"></div>
+      <div id="date-editor">
+        <input type="datetime-local" id="date-input" title="Jump to date &amp; time" />
+        <button id="date-go">Go ↵</button>
+        <button id="date-now">Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-label">TOP-DOWN VIEW</div>
+  <div id="hint">🖱 Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+
+  <div id="controls">
+    <div class="ctrl-group">
+      <div class="clbl">Views</div>
+      <div class="btn-col">
+        <button class="btn active" id="v-top">⬆ Top Down</button>
+        <button class="btn" id="v-ecliptic">🌐 Ecliptic</button>
+        <button class="btn" id="v-earth">🌍 From Earth</button>
+        <button class="btn" id="v-moon">🌕 From Moon</button>
+        <button class="btn" id="v-side">↔ Side View</button>
+        <button class="btn" id="v-free">✦ Free Cam</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="clbl">Time Scale</div>
+      <div class="btn-col">
+        <button class="btn active" id="s-real" data-speed="1">Real Time</button>
+        <button class="btn" id="s-hour" data-speed="3600">1 hr / sec</button>
+        <button class="btn" id="s-day"  data-speed="86400">1 day / sec</button>
+        <button class="btn" id="s-week" data-speed="604800">1 wk / sec</button>
+        <button class="btn" id="s-mon"  data-speed="2592000">1 mo / sec</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="clbl">Camera Position</div>
+      <div class="btn-col">
+        <button class="btn active" id="p-sys">◎ System</button>
+        <button class="btn" id="p-sun">☀ Sun</button>
+        <button class="btn" id="p-earth">🌍 Earth</button>
+        <button class="btn" id="p-moon">🌕 Moon</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="clbl">Looking At</div>
+      <div class="btn-col">
+        <button class="btn active" id="t-none">✦ Free / Orbit</button>
+        <button class="btn" id="t-sun">☀ Sun</button>
+        <button class="btn" id="t-earth">🌍 Earth</button>
+        <button class="btn" id="t-moon">🌕 Moon</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="info-bar">
+    <div class="card">
+      <div class="lbl">☀ Sun</div>
+      <div class="val" id="i-sun">Centre of System<br><span>1,392,000 km diameter</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">🌍 Earth</div>
+      <div class="val" id="i-earth">—</div>
+    </div>
+    <div class="card">
+      <div class="lbl">🌕 Moon</div>
+      <div class="val" id="i-moon">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  ASTRONOMY HELPERS
+// ═══════════════════════════════════════════════════════════
+const TWO_PI = Math.PI * 2;
+const DEG = Math.PI / 180;
+
+function julianDay(date) { return date.getTime() / 86400000 + 2440587.5; }
+const J2000 = 2451545.0;
+
+function earthAngle(date) {
+  const T = (julianDay(date) - J2000) / 36525;
+  const L0 = 280.46646 + 36000.76983 * T;
+  const M  = (357.52911 + 35999.05029 * T) * DEG;
+  const C  = (1.914602 - 0.004817*T)*Math.sin(M) + 0.019993*Math.sin(2*M) + 0.000289*Math.sin(3*M);
+  return ((L0 + C) % 360) * DEG;
+}
+
+function moonAngle(date) {
+  const T  = (julianDay(date) - J2000) / 36525;
+  const L  = 218.3164477 + 481267.88123421 * T;
+  const M  = (357.5291092 + 35999.0502909  * T) * DEG;
+  const Mp = (134.9633964 + 477198.8675055  * T) * DEG;
+  const D  = (297.8501921 + 445267.1114034  * T) * DEG;
+  const F  = (93.2720950  + 483202.0175233  * T) * DEG;
+  const lon = L
+    + 6.289*Math.sin(Mp) - 1.274*Math.sin(2*D-Mp) + 0.658*Math.sin(2*D)
+    - 0.186*Math.sin(M)  - 0.059*Math.sin(2*D-2*Mp) - 0.057*Math.sin(2*D-M-Mp)
+    + 0.053*Math.sin(2*D+Mp) + 0.046*Math.sin(2*D-M) + 0.041*Math.sin(Mp-M)
+    - 0.035*Math.sin(D)  - 0.031*Math.sin(Mp+M);
+  return lon * DEG;
+}
+
+function earthSunDistAU(date) {
+  const T = (julianDay(date) - J2000) / 36525;
+  const M = (357.52911 + 35999.05029 * T) * DEG;
+  const e = 0.016708634 - 0.000042037 * T;
+  return 1.000001018*(1 - e*e)/(1 + e*Math.cos(M));
+}
+
+function moonEarthDistKm(date) {
+  const T  = (julianDay(date) - J2000) / 36525;
+  const Mp = (134.9633964 + 477198.8675055 * T) * DEG;
+  const D  = (297.8501921 + 445267.1114034 * T) * DEG;
+  return 385001 - 20905*Math.cos(Mp) - 3699*Math.cos(2*D-Mp) - 2956*Math.cos(2*D) - 570*Math.cos(2*Mp);
+}
+
+function moonPhaseName(elongation) {
+  const d = ((elongation*180/Math.PI)%360+360)%360;
+  if (d<22.5||d>=337.5) return 'New Moon';
+  if (d<67.5)  return 'Waxing Crescent';
+  if (d<112.5) return 'First Quarter';
+  if (d<157.5) return 'Waxing Gibbous';
+  if (d<202.5) return 'Full Moon';
+  if (d<247.5) return 'Waning Gibbous';
+  if (d<292.5) return 'Last Quarter';
+  return 'Waning Crescent';
+}
+
+function getSeason(eAng) {
+  const d = ((eAng*180/Math.PI)%360+360)%360;
+  if (d<90)  return 'Spring (N)';
+  if (d<180) return 'Summer (N)';
+  if (d<270) return 'Autumn (N)';
+  return 'Winter (N)';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════
+const canvas3 = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas: canvas3, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x03050d);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.001, 10000);
+camera.position.set(0, 12, 0);
+camera.lookAt(0,0,0);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Stars ────────────────────────────────────────────────────
+(function makeStars() {
+  const geo = new THREE.BufferGeometry();
+  const n = 4000;
+  const pos = new Float32Array(n*3);
+  const col = new Float32Array(n*3);
+  for (let i=0;i<n;i++) {
+    const theta = Math.random()*TWO_PI;
+    const phi   = Math.acos(2*Math.random()-1);
+    const r     = 800 + Math.random()*200;
+    pos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+    pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+    pos[i*3+2] = r*Math.cos(phi);
+    const t = 0.7 + Math.random()*0.3;
+    // Slightly warm/cool tint
+    const warm = Math.random();
+    col[i*3]   = t * (warm > 0.7 ? 1.0 : warm > 0.4 ? 0.9 : 0.8);
+    col[i*3+1] = t * (warm > 0.7 ? 0.9 : warm > 0.4 ? 0.9 : 0.88);
+    col[i*3+2] = t * (warm > 0.7 ? 0.8 : warm > 0.4 ? 1.0 : 1.0);
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const mat = new THREE.PointsMaterial({ size:0.8, vertexColors:true, sizeAttenuation:true });
+  scene.add(new THREE.Points(geo, mat));
+})();
+
+// ── Sun light source ─────────────────────────────────────────
+const sunLight = new THREE.PointLight(0xfff5d0, 2.2, 0, 1.8);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width  = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.01;
+sunLight.shadow.camera.far  = 500;
+scene.add(sunLight);
+
+// Small ambient so the dark side isn't pitch black (deep space bounce)
+const ambient = new THREE.AmbientLight(0x08101f, 0.35);
+scene.add(ambient);
+
+// ── Texture generator helpers ────────────────────────────────
+function makeCanvas2D(w, h, fn) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  fn(c.getContext('2d'), w, h);
+  return new THREE.CanvasTexture(c);
+}
+
+// Sun texture (procedural)
+const sunTex = makeCanvas2D(512, 512, (ctx, w, h) => {
+  const g = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, w/2);
+  g.addColorStop(0,    '#fff8d0');
+  g.addColorStop(0.25, '#ffe060');
+  g.addColorStop(0.55, '#ffaa10');
+  g.addColorStop(0.8,  '#ff6a00');
+  g.addColorStop(1,    '#cc3300');
+  ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+
+  // Sunspot-ish noise
+  ctx.globalAlpha = 0.18;
+  for (let i=0;i<60;i++) {
+    const x = Math.random()*w, y = Math.random()*h;
+    const r = Math.random()*14+3;
+    const sg = ctx.createRadialGradient(x,y,0,x,y,r);
+    sg.addColorStop(0,'#7a3200'); sg.addColorStop(1,'transparent');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(x,y,r,0,TWO_PI); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+});
+
+// Earth day texture — procedural fallback (replaced by NASA texture async below)
+const earthDayTex = makeCanvas2D(1024, 512, (ctx, w, h) => {
+  const g = ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0, '#1a4a8c'); g.addColorStop(1, '#1a4a8c');
+  ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = '#3a8c4a';
+  ctx.fillRect(w*0.1, h*0.2, w*0.15, h*0.4);
+  ctx.fillRect(w*0.45, h*0.15, w*0.35, h*0.35);
+  ctx.fillRect(w*0.45, h*0.45, w*0.12, h*0.3);
+  ctx.fillRect(w*0.7, h*0.55, w*0.12, h*0.2);
+});
+
+// Earth night texture — procedural fallback (replaced async)
+const earthNightTex = makeCanvas2D(512, 256, (ctx, w, h) => {
+  ctx.fillStyle = '#020408'; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = 'rgba(255,220,130,0.8)';
+  for(let i=0;i<200;i++){
+    ctx.beginPath();
+    ctx.arc(Math.random()*w, Math.random()*h*0.8+h*0.1, Math.random()*1.5+0.3, 0, Math.PI*2);
+    ctx.fill();
+  }
+});
+
+// Moon texture — procedural fallback (replaced async)
+const moonTex = makeCanvas2D(512, 512, (ctx, w, h) => {
+  const g = ctx.createRadialGradient(w/2,h/2,10,w/2,h/2,w/2);
+  g.addColorStop(0,'#d8dde6'); g.addColorStop(0.6,'#b8bdc8'); g.addColorStop(1,'#8a8f9a');
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+});
+
+// ── SOLAR FLARE / CORONA sprite ──────────────────────────────
+const flareTex = makeCanvas2D(256, 256, (ctx, w, h) => {
+  const g = ctx.createRadialGradient(w/2,h/2,0, w/2,h/2,w/2);
+  g.addColorStop(0,   'rgba(255,255,200,0.9)');
+  g.addColorStop(0.2, 'rgba(255,180,30,0.6)');
+  g.addColorStop(0.5, 'rgba(255,100,0,0.2)');
+  g.addColorStop(1,   'rgba(255,60,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+});
+
+// ── Build scene objects ───────────────────────────────────────
+
+// SCALE (display units, not real km)
+const AU = 10;          // 1 AU = 10 display units
+const EARTH_R  = 0.42;
+const MOON_R   = 0.22;   // boosted so it's clearly visible at system scale
+const SUN_R    = 1.2;
+const MOON_ORBIT_R = 1.8; // fixed display-space orbit radius around Earth (clearly visible)
+
+// SUN
+const sunGeo = new THREE.SphereGeometry(SUN_R, 48, 48);
+const sunMat = new THREE.MeshBasicMaterial({ map: sunTex });
+const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+scene.add(sunMesh);
+
+// Sun corona sprite (additive glow)
+const spriteMat = new THREE.SpriteMaterial({ map: flareTex, color: 0xffaa00, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.7 });
+const sunSprite = new THREE.Sprite(spriteMat);
+sunSprite.scale.set(SUN_R*7, SUN_R*7, 1);
+scene.add(sunSprite);
+
+// EARTH — use a custom shader for day/night blending
+const earthGeo = new THREE.SphereGeometry(EARTH_R, 64, 64);
+
+// Day/Night blending via custom shader material
+const earthMat = new THREE.ShaderMaterial({
+  uniforms: {
+    dayTex:   { value: earthDayTex  },
+    nightTex: { value: earthNightTex },
+    sunDir:   { value: new THREE.Vector3(1,0,0) },
+    atmColor: { value: new THREE.Color(0x5599ff) },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vWorldNormal;
+    void main() {
+      vUv = uv;
+      vNormal = normal;
+      vWorldNormal = normalize(mat3(modelMatrix) * normal);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D dayTex;
+    uniform sampler2D nightTex;
+    uniform vec3 sunDir;
+    uniform vec3 atmColor;
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vWorldNormal;
+
+    void main() {
+      vec3 day   = texture2D(dayTex,   vUv).rgb;
+      vec3 night = texture2D(nightTex, vUv).rgb;
+
+      float NdotS = dot(vWorldNormal, normalize(sunDir));
+      // Smooth terminator
+      float blend = smoothstep(-0.1, 0.25, NdotS);
+
+      // Atmosphere rim
+      vec3 viewDir = normalize(cameraPosition - vWorldNormal * 0.001);
+      float rim = 1.0 - max(0.0, dot(vWorldNormal, viewDir));
+      rim = pow(rim, 3.5);
+      float atmStrength = smoothstep(-0.15, 0.4, NdotS + 0.15);
+      vec3 atm = atmColor * rim * atmStrength * 0.8;
+
+      vec3 col = mix(night * 0.9, day, blend) + atm;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+
+const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+earthMesh.castShadow = true;
+scene.add(earthMesh);
+
+// Earth clouds layer
+const cloudTex = makeCanvas2D(512, 256, (ctx, w, h) => {
+  ctx.fillStyle = 'transparent';
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = 'rgba(255,255,255,0.82)';
+  for (let i=0;i<50;i++) {
+    ctx.globalAlpha = Math.random()*0.5+0.2;
+    ctx.beginPath();
+    ctx.ellipse(Math.random()*w, Math.random()*h, Math.random()*w*0.12+15, Math.random()*h*0.04+5, Math.random()*Math.PI, 0, TWO_PI);
+    ctx.fill();
+  }
+});
+const cloudGeo = new THREE.SphereGeometry(EARTH_R * 1.012, 48, 48);
+const cloudMat = new THREE.MeshPhongMaterial({
+  map: cloudTex, transparent: true, opacity: 0.55,
+  depthWrite: false, blending: THREE.NormalBlending
+});
+const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+earthMesh.add(cloudMesh);
+
+// Earth axial tilt (23.5°)
+earthMesh.rotation.z = 23.5 * DEG;
+
+// MOON
+const moonGeo = new THREE.SphereGeometry(MOON_R, 48, 48);
+const moonMat = new THREE.MeshPhongMaterial({
+  map: moonTex,
+  shininess: 5,
+  specular: new THREE.Color(0x111111),
+});
+const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+moonMesh.castShadow = true;
+scene.add(moonMesh);
+
+// Ecliptic orbit ring
+(function makeOrbitRing() {
+  const pts = [];
+  for (let i=0;i<=200;i++) {
+    const a = (i/200)*TWO_PI;
+    pts.push(new THREE.Vector3(Math.cos(a)*AU, 0, Math.sin(a)*AU));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({ color: 0x1a2a4a, transparent: true, opacity: 0.5 });
+  scene.add(new THREE.Line(geo, mat));
+})();
+
+// Moon orbit ring (around Earth, built dynamically in animate)
+
+// ═══════════════════════════════════════════════════════════
+//  FADING TRAIL SYSTEM
+// ═══════════════════════════════════════════════════════════
+const TRAIL_LENGTH = 300; // number of points in each trail
+
+function makeTrail(color) {
+  const positions = new Float32Array(TRAIL_LENGTH * 3);
+  const colors    = new Float32Array(TRAIL_LENGTH * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
+  geo.setDrawRange(0, 0); // start empty
+
+  const mat = new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  const line = new THREE.Line(geo, mat);
+  scene.add(line);
+
+  // Ring buffer of Vec3 points
+  const points = [];
+  const r = new THREE.Color(color);
+
+  return {
+    line, geo, points,
+    baseColor: r,
+    push(pos) {
+      points.push(pos.clone());
+      if (points.length > TRAIL_LENGTH) points.shift();
+
+      const n = points.length;
+      geo.setDrawRange(0, n);
+
+      const posArr = geo.attributes.position.array;
+      const colArr = geo.attributes.color.array;
+
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1); // 0=oldest, 1=newest
+        const fade = Math.pow(t, 1.8); // sharp fade at tail
+
+        posArr[i*3]   = points[i].x;
+        posArr[i*3+1] = points[i].y;
+        posArr[i*3+2] = points[i].z;
+
+        colArr[i*3]   = r.r * fade;
+        colArr[i*3+1] = r.g * fade;
+        colArr[i*3+2] = r.b * fade;
+      }
+
+      geo.attributes.position.needsUpdate = true;
+      geo.attributes.color.needsUpdate    = true;
+    }
+  };
+}
+
+const earthTrail = makeTrail(0x4499ff); // soft blue for Earth
+const moonTrail  = makeTrail(0xaabbcc); // soft silver for Moon
+
+// How often to sample (every N frames)
+let trailFrame = 0;
+const TRAIL_SAMPLE_EVERY = 2;
+
+// ═══════════════════════════════════════════════════════════
+//  CAMERA CONTROL
+// ═══════════════════════════════════════════════════════════
+let camTheta = Math.PI/2, camPhi = Math.PI/2, camDist = 18;
+let targetTheta = camTheta, targetPhi = camPhi, targetDist = camDist;
+let targetCenter = new THREE.Vector3(0,0,0);
+let currentCenter = new THREE.Vector3(0,0,0);
+let autoRotate = false;
+let freeCam = false;
+
+// Drag state
+let isDragging = false, isRightDrag = false;
+let lastMouse = {x:0, y:0};
+
+canvas3.addEventListener('mousedown', e => {
+  isDragging = true;
+  isRightDrag = e.button === 2;
+  lastMouse = {x: e.clientX, y: e.clientY};
+  freeCam = true;
+  document.getElementById('v-free').classList.add('active');
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side'].forEach(id => document.getElementById(id).classList.remove('active'));
+});
+
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastMouse.x;
+  const dy = e.clientY - lastMouse.y;
+  lastMouse = {x: e.clientX, y: e.clientY};
+
+  if (isRightDrag) {
+    // Pan
+    const right = new THREE.Vector3();
+    const up    = new THREE.Vector3();
+    camera.getWorldDirection(right);
+    right.cross(camera.up).normalize();
+    up.copy(camera.up);
+    targetCenter.addScaledVector(right, -dx * 0.02);
+    targetCenter.addScaledVector(up,    dy * 0.02);
+  } else {
+    // Orbit
+    targetTheta -= dx * 0.008;
+    targetPhi   = Math.max(0.05, Math.min(Math.PI - 0.05, targetPhi - dy * 0.008));
+  }
+});
+
+canvas3.addEventListener('wheel', e => {
+  e.preventDefault();
+  targetDist = Math.max(0.5, Math.min(60, targetDist + e.deltaY * 0.02));
+}, { passive: false });
+
+canvas3.addEventListener('contextmenu', e => e.preventDefault());
+
+// Touch support
+let lastTouch = null, lastPinchDist = null;
+canvas3.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    lastTouch = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    isDragging = true; isRightDrag = false;
+  } else if (e.touches.length === 2) {
+    lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+});
+canvas3.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && lastTouch) {
+    const dx = e.touches[0].clientX - lastTouch.x;
+    const dy = e.touches[0].clientY - lastTouch.y;
+    lastTouch = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    targetTheta -= dx * 0.01;
+    targetPhi = Math.max(0.05, Math.min(Math.PI-0.05, targetPhi - dy*0.01));
+    freeCam = true;
+  } else if (e.touches.length === 2 && lastPinchDist !== null) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    targetDist = Math.max(1.5, Math.min(60, targetDist - (d - lastPinchDist) * 0.05));
+    lastPinchDist = d;
+  }
+}, { passive: false });
+canvas3.addEventListener('touchend', () => { isDragging = false; lastTouch = null; lastPinchDist = null; });
+
+// ── Preset view functions ────────────────────────────────────
+function setView(theta, phi, dist, center, label) {
+  targetTheta = theta; targetPhi = phi; targetDist = dist;
+  if (center) targetCenter.copy(center);
+  document.getElementById('view-label').textContent = label;
+  freeCam = false;
+}
+
+document.getElementById('v-top').onclick = () => {
+  setPos('system', 22); setLookTarget(null); setView(0, 0.08, 22, new THREE.Vector3(0,0,0), 'TOP DOWN — ECLIPTIC PLANE');
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side','v-free'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('v-top').classList.add('active');
+};
+document.getElementById('v-ecliptic').onclick = () => {
+  setPos('system', 22); setLookTarget(null); setView(0, Math.PI/2, 22, new THREE.Vector3(0,0,0), 'ECLIPTIC VIEW');
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side','v-free'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('v-ecliptic').classList.add('active');
+};
+document.getElementById('v-side').onclick = () => {
+  setPos('system', 20); setLookTarget(null); setView(Math.PI/2, Math.PI/2 - 0.4, 20, new THREE.Vector3(0,0,0), 'SIDE VIEW — ORBITAL TILT');
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side','v-free'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('v-side').classList.add('active');
+};
+document.getElementById('v-earth').onclick = () => {
+  setPos('earth', 3.5); setLookTarget(null);
+  setView(camTheta, camPhi, 3.5, earthMesh.position.clone(), '');
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side','v-free'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('v-earth').classList.add('active');
+};
+document.getElementById('v-moon').onclick = () => {
+  setPos('moon', 1.2); setLookTarget(null);
+  setView(camTheta, camPhi, 1.2, moonMesh.position.clone(), '');
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side','v-free'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('v-moon').classList.add('active');
+};
+document.getElementById('v-free').onclick = () => {
+  freeCam = true;
+  ['v-top','v-ecliptic','v-earth','v-moon','v-side','v-free'].forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('v-free').classList.add('active');
+  document.getElementById('view-label').textContent = 'FREE CAMERA';
+};
+
+// ── Position / Target (POV) system ─────────────────────────
+// camPosition: which body the camera orbits around ('system','sun','earth','moon')
+// lookTarget:  which body to lock gaze at, or null for free orbit
+let camPosition = 'system';
+let lookTarget  = null;
+
+const POS_BTNS = ['p-sys','p-sun','p-earth','p-moon'];
+const TGT_BTNS = ['t-none','t-sun','t-earth','t-moon'];
+
+function setPos(pos, dist) {
+  camPosition = pos;
+  if (dist) targetDist = dist;
+  // Reset orbit angles to a nice starting angle
+  if (pos !== 'system') {
+    targetPhi   = Math.PI * 0.38;
+    targetTheta = 0.4;
+  }
+  POS_BTNS.forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('p-' + (pos === 'system' ? 'sys' : pos)).classList.add('active');
+  updateViewLabel();
+}
+
+function setLookTarget(tgt) {
+  lookTarget = tgt;
+  TGT_BTNS.forEach(b => document.getElementById(b).classList.remove('active'));
+  document.getElementById('t-' + (tgt || 'none')).classList.add('active');
+  updateViewLabel();
+}
+
+function updateViewLabel() {
+  const posName = { system:'System', sun:'Sun', earth:'Earth', moon:'Moon' }[camPosition];
+  const tgtName = lookTarget ? { sun:'Sun', earth:'Earth', moon:'Moon' }[lookTarget] : null;
+  document.getElementById('view-label').textContent =
+    tgtName ? `📍 ${posName}  →  👁 ${tgtName}` : `◎ Orbiting ${posName}`;
+}
+
+document.getElementById('p-sys').onclick   = () => { setPos('system', 22); setLookTarget(null); };
+document.getElementById('p-sun').onclick   = () => { setPos('sun',    5);  };
+document.getElementById('p-earth').onclick = () => { setPos('earth',  3.5);};
+document.getElementById('p-moon').onclick  = () => { setPos('moon',   1.2);};
+
+document.getElementById('t-none').onclick  = () => setLookTarget(null);
+document.getElementById('t-sun').onclick   = () => setLookTarget('sun');
+document.getElementById('t-earth').onclick = () => setLookTarget('earth');
+document.getElementById('t-moon').onclick  = () => setLookTarget('moon');
+
+// ── Speed buttons ────────────────────────────────────────────
+let speed = 1;
+document.querySelectorAll('[data-speed]').forEach(btn => {
+  btn.onclick = () => {
+    speed = parseFloat(btn.dataset.speed);
+    document.querySelectorAll('[data-speed]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+// ═══════════════════════════════════════════════════════════
+//  SIMULATION STATE
+// ═══════════════════════════════════════════════════════════
+let simDate = new Date();
+let lastReal = Date.now();
+let earthPos = new THREE.Vector3();
+let moonPos  = new THREE.Vector3();
+
+// ── NASA texture loader ──────────────────────────────────────
+// Textures from NASA Visible Earth & USGS — public domain
+// We use a CORS-friendly proxy (raw github) for cross-origin loading
+const NASA_TEXTURES = {
+  earthDay:   'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg',
+  earthNight: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_lights_2048.png',
+  earthClouds:'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_clouds_1024.png',
+  moon:       'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/moon_1024.jpg',
+};
+
+// Loading indicator
+const loadDiv = document.createElement('div');
+loadDiv.id = 'tex-load';
+loadDiv.style.cssText = 'position:fixed;bottom:140px;left:50%;transform:translateX(-50%);font-family:Space Mono,monospace;font-size:0.58rem;letter-spacing:0.15em;color:#3a4a6a;pointer-events:none;z-index:20;text-transform:uppercase;';
+loadDiv.textContent = '⟳ Loading NASA textures…';
+document.body.appendChild(loadDiv);
+
+const texLoader = new THREE.TextureLoader();
+texLoader.crossOrigin = 'anonymous';
+
+let texLoaded = 0;
+const TEX_TOTAL = 4;
+function onTexLoad() {
+  texLoaded++;
+  if (texLoaded >= TEX_TOTAL) {
+    loadDiv.textContent = '✓ NASA textures loaded';
+    setTimeout(() => loadDiv.style.opacity = '0', 1500);
+    setTimeout(() => loadDiv.remove(), 2500);
+  }
+}
+
+// Async load — swap uniforms/materials when ready
+texLoader.load(NASA_TEXTURES.earthDay, tex => {
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  earthMat.uniforms.dayTex.value = tex;
+  earthMat.uniformsNeedUpdate = true;
+  onTexLoad();
+}, undefined, () => onTexLoad());
+
+texLoader.load(NASA_TEXTURES.earthNight, tex => {
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  earthMat.uniforms.nightTex.value = tex;
+  earthMat.uniformsNeedUpdate = true;
+  onTexLoad();
+}, undefined, () => onTexLoad());
+
+texLoader.load(NASA_TEXTURES.earthClouds, tex => {
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  cloudMat.map = tex;
+  cloudMat.alphaMap = tex;
+  cloudMat.transparent = true;
+  cloudMat.needsUpdate = true;
+  onTexLoad();
+}, undefined, () => onTexLoad());
+
+texLoader.load(NASA_TEXTURES.moon, tex => {
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  moonMat.map = tex;
+  moonMat.needsUpdate = true;
+  onTexLoad();
+}, undefined, () => onTexLoad());
+
+// ═══════════════════════════════════════════════════════════
+//  ANIMATE LOOP
+// ═══════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const nowReal = Date.now();
+  const dtReal  = (nowReal - lastReal) / 1000;
+  lastReal = nowReal;
+  simDate = new Date(simDate.getTime() + dtReal * speed * 1000);
+
+  // ── Orbital positions ──
+  const eAng  = earthAngle(simDate);
+  const mAng  = moonAngle(simDate);
+  const esDist = earthSunDistAU(simDate) * AU;
+  const meDist = moonEarthDistKm(simDate);
+
+  // Earth position (in ecliptic plane)
+  earthPos.set(Math.cos(eAng) * esDist, 0, Math.sin(eAng) * esDist);
+  earthMesh.position.copy(earthPos);
+
+  // Moon position — use fixed display orbit radius so it's always visible
+  const moonInc = 5.1 * DEG;
+  moonPos.set(
+    earthPos.x + Math.cos(mAng) * MOON_ORBIT_R,
+    Math.sin(moonInc) * Math.sin(mAng) * MOON_ORBIT_R,
+    earthPos.z + Math.sin(mAng) * MOON_ORBIT_R
+  );
+  moonMesh.position.copy(moonPos);
+
+  // ── Record trail points ──
+  trailFrame++;
+  if (trailFrame % TRAIL_SAMPLE_EVERY === 0) {
+    earthTrail.push(earthPos);
+    moonTrail.push(moonPos);
+  }
+
+  // Sun at origin
+  sunLight.position.set(0, 0, 0);
+
+  // ── Earth shader: pass sun direction in world space ──
+  const sunDirWorld = new THREE.Vector3().sub(earthPos).normalize();
+  earthMat.uniforms.sunDir.value.copy(sunDirWorld);
+
+  // ── Earth self-rotation (~24h period, scaled by speed) ──
+  earthMesh.rotation.y += (TWO_PI / 86400) * dtReal * speed * 0.05; // slow down for visibility
+
+  // ── Moon tidal lock — always face Earth, no rolling ──────────
+  // Build an explicit orthonormal basis with ecliptic north (0,1,0) as the
+  // fixed "up", so the Moon can't cartwheel as it orbits.
+  const moonFwd   = new THREE.Vector3().subVectors(earthPos, moonPos).normalize();
+  const moonRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), moonFwd).normalize();
+  const moonUp    = new THREE.Vector3().crossVectors(moonFwd, moonRight).normalize();
+  moonMesh.quaternion.setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(moonRight, moonUp, moonFwd)
+  );
+
+  // Cloud slow drift
+  cloudMesh.rotation.y += 0.0001 * Math.max(1, speed * 0.0002);
+
+  // Sun pulsing corona
+  const pulse = 1 + 0.04 * Math.sin(Date.now() * 0.0015);
+  sunSprite.scale.set(SUN_R*7*pulse, SUN_R*7*pulse, 1);
+  sunMesh.rotation.y += 0.0003;
+
+  // ── Camera: resolve position pivot ──────────────────────────
+  // Get the world position of whatever body the camera is orbiting
+  const pivotPos = new THREE.Vector3(
+    camPosition === 'earth' ? earthPos.x : camPosition === 'moon' ? moonPos.x : camPosition === 'sun' ? 0 : 0,
+    camPosition === 'earth' ? earthPos.y : camPosition === 'moon' ? moonPos.y : 0,
+    camPosition === 'earth' ? earthPos.z : camPosition === 'moon' ? moonPos.z : camPosition === 'sun' ? 0 : 0
+  );
+  targetCenter.lerp(pivotPos, 0.07);
+
+  // Smooth cam interpolation
+  camTheta = camTheta + (targetTheta - camTheta) * 0.08;
+  camPhi   = camPhi   + (targetPhi   - camPhi)   * 0.08;
+  camDist  = camDist  + (targetDist  - camDist)   * 0.08;
+  currentCenter.lerp(targetCenter, 0.07);
+
+  // Spherical offset from pivot
+  const cx = currentCenter.x + camDist * Math.sin(camPhi) * Math.cos(camTheta);
+  const cy = currentCenter.y + camDist * Math.cos(camPhi);
+  const cz = currentCenter.z + camDist * Math.sin(camPhi) * Math.sin(camTheta);
+  camera.position.set(cx, cy, cz);
+
+  // ── If a look target is set, override lookAt ──────────────
+  if (lookTarget) {
+    const gazeAt = lookTarget === 'sun'   ? new THREE.Vector3(0, 0, 0)
+                 : lookTarget === 'earth' ? earthPos.clone()
+                 :                          moonPos.clone();
+    camera.lookAt(gazeAt);
+  } else {
+    camera.lookAt(currentCenter);
+  }
+
+  // ── Info cards ──
+  const esKm    = Math.round(earthSunDistAU(simDate) * 149597870.7);
+  const meKm    = Math.round(meDist);
+  const elDeg   = ((mAng - eAng) * 180 / Math.PI % 360 + 360) % 360;
+  const phase   = moonPhaseName(mAng - eAng);
+  const illum   = ((1 - Math.cos(mAng - eAng)) / 2 * 100).toFixed(0);
+  const season  = getSeason(eAng);
+
+  document.getElementById('i-earth').innerHTML =
+    `${(esKm/1e6).toFixed(3)} M km<br><span>${season} · Axial tilt 23.5°</span>`;
+  document.getElementById('i-moon').innerHTML =
+    `${phase}<br><span>${(meKm/1000).toFixed(0)}k km · ${illum}% lit</span>`;
+
+  // ── Clock ──
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d = simDate;
+  const H = String(d.getUTCHours()).padStart(2,'0');
+  const M2 = String(d.getUTCMinutes()).padStart(2,'0');
+  const S = String(d.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('clock-display').innerHTML =
+    `<span class="dateline">${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}</span> &nbsp;${H}:${M2}:${S} UTC`;
+
+  renderer.render(scene, camera);
+}
+
+// ── Date picker wiring ───────────────────────────────────────
+function toDatetimeLocal(date) {
+  // Format date as yyyy-MM-ddTHH:mm for datetime-local input (local time)
+  const pad = n => String(n).padStart(2,'0');
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const dateInput = document.getElementById('date-input');
+const dateGo    = document.getElementById('date-go');
+const dateNow   = document.getElementById('date-now');
+
+// Init input to current sim date
+dateInput.value = toDatetimeLocal(simDate);
+
+// Jump to chosen date
+function jumpToDate() {
+  const val = dateInput.value;
+  if (!val) return;
+  const jumped = new Date(val);
+  if (isNaN(jumped)) return;
+  simDate = jumped;
+  lastReal = Date.now();
+  // Flash the input border gold briefly
+  dateInput.style.borderColor = 'rgba(255,208,69,0.9)';
+  setTimeout(() => { dateInput.style.borderColor = ''; }, 600);
+}
+
+dateGo.addEventListener('click', jumpToDate);
+dateInput.addEventListener('keydown', e => { if (e.key === 'Enter') jumpToDate(); });
+
+// Reset to current real time
+dateNow.addEventListener('click', () => {
+  simDate = new Date();
+  lastReal = Date.now();
+  dateInput.value = toDatetimeLocal(simDate);
+  dateInput.style.borderColor = 'rgba(100,200,100,0.8)';
+  setTimeout(() => { dateInput.style.borderColor = ''; }, 600);
+});
+
+// Keep input loosely synced when not editing (every 5s)
+setInterval(() => {
+  if (document.activeElement !== dateInput) {
+    dateInput.value = toDatetimeLocal(simDate);
+  }
+}, 5000);
+
+// Initial view
+document.getElementById('v-top').click();
+animate();
+</script>
+</body>
+</html>
