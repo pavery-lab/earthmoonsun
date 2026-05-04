@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Zen Pond</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#04100d;
+    display:flex; align-items:center; justify-content:center;
+    width:100vw; height:100vh;
+    overflow:hidden;
+    touch-action:none;
+  }
+  canvas { display:block; touch-action:none; cursor:none; pointer-events:none; }
+  #soundToggle, #soundPanel { pointer-events:all; }
+  #start {
+    position:fixed; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(8,5,2,0.92);
+    z-index:10;
+    gap:18px;
+  }
+  #start h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(22px, 4vw, 38px);
+    color: rgba(210,185,110,0.85);
+    letter-spacing: 0.12em;
+    font-weight: normal;
+  }
+  #start p {
+    font-family: Georgia, serif;
+    font-size: clamp(12px, 1.8vw, 15px);
+    color: rgba(180,155,90,0.5);
+    letter-spacing: 0.1em;
+    text-align:center;
+    max-width:320px;
+    line-height: 1.8;
+  }
+  #startBtn {
+    margin-top:12px;
+    padding: 10px 36px;
+    border: 1px solid rgba(210,185,110,0.3);
+    background: transparent;
+    color: rgba(210,185,110,0.7);
+    font-family: Georgia, serif;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  #startBtn:hover {
+    border-color: rgba(210,185,110,0.7);
+    color: rgba(210,185,110,1);
+    background: rgba(210,185,110,0.05);
+  }
+  /* ── Sound Panel ───────────────────────────────────────────────────────── */
+  #fullscreenToggle {
+    position: fixed;
+    bottom: 18px; right: 62px;
+    width: 36px; height: 36px;
+    background: rgba(10,40,30,0.75);
+    border: 1px solid rgba(80,160,120,0.25);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 20;
+    transition: border-color 0.3s, background 0.3s;
+    backdrop-filter: blur(4px);
+    pointer-events: all;
+  }
+  #fullscreenToggle:hover {
+    border-color: rgba(100,190,140,0.55);
+    background: rgba(15,55,40,0.85);
+  }
+  #fullscreenToggle svg {
+    width: 15px; height: 15px;
+    fill: rgba(120,200,160,0.7);
+    transition: fill 0.3s;
+  }
+  #fullscreenToggle:hover svg { fill: rgba(160,220,185,0.9); }
+    position: fixed;
+    bottom: 18px; right: 18px;
+    width: 36px; height: 36px;
+    background: rgba(10,40,30,0.75);
+    border: 1px solid rgba(80,160,120,0.25);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 20;
+    transition: border-color 0.3s, background 0.3s;
+    backdrop-filter: blur(4px);
+  }
+  #soundToggle:hover {
+    border-color: rgba(100,190,140,0.55);
+    background: rgba(15,55,40,0.85);
+  }
+  #soundToggle svg {
+    width: 16px; height: 16px;
+    fill: rgba(120,200,160,0.7);
+    transition: transform 0.5s, fill 0.3s;
+  }
+  #soundToggle:hover svg { fill: rgba(160,220,185,0.9); }
+  #soundToggle.open svg  { transform: rotate(45deg); }
+
+  #soundPanel {
+    position: fixed;
+    bottom: 62px; right: 18px;
+    width: 220px;
+    background: rgba(6,28,20,0.92);
+    border: 1px solid rgba(80,160,120,0.22);
+    border-radius: 10px;
+    padding: 16px;
+    z-index: 20;
+    backdrop-filter: blur(8px);
+    font-family: Georgia, serif;
+    transform-origin: bottom right;
+    transform: scale(0.85);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.22s ease, opacity 0.22s ease;
+  }
+  #soundPanel.open {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: all;
+  }
+  .sp-label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(100,180,140,0.55);
+    margin-bottom: 8px;
+    margin-top: 12px;
+  }
+  .sp-label:first-child { margin-top: 0; }
+  .sp-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .sp-btn {
+    padding: 5px 10px;
+    border: 1px solid rgba(80,150,110,0.25);
+    border-radius: 20px;
+    background: transparent;
+    color: rgba(140,200,165,0.6);
+    font-family: Georgia, serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .sp-btn:hover {
+    border-color: rgba(100,180,135,0.55);
+    color: rgba(170,225,190,0.9);
+    background: rgba(30,80,55,0.3);
+  }
+  .sp-btn.active {
+    border-color: rgba(100,200,150,0.7);
+    color: rgba(200,240,215,1);
+    background: rgba(20,80,50,0.55);
+  }
+  .sp-divider {
+    height: 1px;
+    background: rgba(80,150,110,0.15);
+    margin: 12px 0 0;
+  }
+</style>
+</head>
+<body>
+<div id="start">
+  <h1>Zen Pond</h1>
+  <p>A still water world of leaf, koi, and light.<br>Touch to guide the spirit.</p>
+  <button id="startBtn">Begin</button>
+</div>
+<canvas id="c"></canvas>
+
+<!-- Fullscreen toggle -->
+<button id="fullscreenToggle" title="Toggle fullscreen">
+  <svg id="fsIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/>
+  </svg>
+</button>
+
+<!-- Sound settings panel -->
+<button id="soundToggle" title="Sound settings">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2a2 2 0 0 1 2 2c0 .28-.06.54-.16.78l1.66 1.66A6 6 0 0 1 18 12a6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 2.5-4.87L10.16 4.78A2 2 0 0 1 10 4a2 2 0 0 1 2-2zm0 4a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4zm0 1.5a2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 9.5 10 2.5 2.5 0 0 1 12 7.5z"/>
+  </svg>
+</button>
+
+<div id="soundPanel">
+  <div class="sp-label">Instrument</div>
+  <div class="sp-options" id="instrOptions">
+    <button class="sp-btn active" data-instr="bowl">Singing Bowl</button>
+    <button class="sp-btn" data-instr="kalimba">Kalimba</button>
+    <button class="sp-btn" data-instr="glass">Glass</button>
+    <button class="sp-btn" data-instr="silence">Silence</button>
+  </div>
+  <div class="sp-divider"></div>
+  <div class="sp-label">Mood</div>
+  <div class="sp-options" id="moodOptions">
+    <button class="sp-btn active" data-mood="pentatonic">Pentatonic</button>
+    <button class="sp-btn" data-mood="minor">Minor</button>
+    <button class="sp-btn" data-mood="wholetone">Whole Tone</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// SETUP
+// ─────────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  // rebuild background if already running
+  if(typeof bgCanvas !== 'undefined' && bgCanvas) buildBackground();
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIO
+// ─────────────────────────────────────────────────────────────────────────────
+let audioCtx;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOUND SETTINGS
+// ─────────────────────────────────────────────────────────────────────────────
+const soundSettings = {
+  instrument: 'bowl',   // bowl | kalimba | glass | silence
+  mood:       'pentatonic', // pentatonic | minor | wholetone
+};
+
+// Scale definitions — root C, mapped across octaves
+// Each mood provides frequency ratios relative to base notes
+const SCALES = {
+  pentatonic: {
+    // C D E G A — calm, resolved, nothing clashes
+    ratios: [1, 9/8, 5/4, 3/2, 5/3],
+    label: 'Pentatonic',
+  },
+  minor: {
+    // C D Eb F G Ab Bb — melancholic, atmospheric
+    ratios: [1, 9/8, 6/5, 4/3, 3/2, 8/5, 9/5],
+    label: 'Minor',
+  },
+  wholetone: {
+    // C D E F# Ab Bb — dreamy, floating, symmetric
+    ratios: [1, 9/8, 5/4, 45/32, 8/5, 9/5],
+    label: 'Whole Tone',
+  },
+};
+
+// Base frequencies per object type (root note, mood will remap)
+const BASE_ROOTS = {
+  lily_pad: 65.4,   // C2
+  acorn:    196.0,  // G3
+  twig:     261.6,  // C4
+  leaf:     392.0,  // G4
+  lotus:    523.3,  // C5
+};
+
+// Instrument definitions
+const INSTRUMENTS = {
+  bowl: {
+    oscType: 'sine',
+    attackTime: 0.015,
+    decayMult: 1.0,
+    volume: 0.22,
+    wobble: true,     // slight freq wobble for bowl resonance
+    harmonics: [],
+  },
+  kalimba: {
+    oscType: 'triangle',
+    attackTime: 0.005,
+    decayMult: 0.7,
+    volume: 0.20,
+    wobble: false,
+    harmonics: [{ ratio: 4, vol: 0.06 }], // bright overtone
+  },
+  glass: {
+    oscType: 'sine',
+    attackTime: 0.025,
+    decayMult: 1.3,
+    volume: 0.16,
+    wobble: false,
+    harmonics: [{ ratio: 2, vol: 0.08 }, { ratio: 3, vol: 0.04 }], // glassy partials
+  },
+  silence: null,
+};
+
+// Get a scale-mapped frequency for a given object type
+function getMoodFreq(objType) {
+  const root = BASE_ROOTS[objType] || 261.6;
+  const scale = SCALES[soundSettings.mood];
+  const ratio = scale.ratios[Math.floor(Math.random()*scale.ratios.length)];
+  // pick octave — heavier objects stay lower
+  const octave = (objType==='lily_pad') ? 1 :
+                 (objType==='acorn')    ? 2 :
+                 (objType==='twig')     ? 2 :
+                 (objType==='leaf')     ? 3 : 3;
+  return root * ratio * (octave === 1 ? 1 : octave === 2 ? 2 : 4) / 4;
+}
+
+function initAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+// Pitch colour mapping
+const PITCH_COLOURS = {
+  bowl_low:  { h:270, s:70, l:45 },   // deep violet   C2-E2
+  bowl_mid:  { h:240, s:60, l:50 },   // indigo        D2-F2
+  kal_low:   { h:170, s:60, l:38 },   // teal          G3-B3
+  kal_mid:   { h:150, s:55, l:42 },   // moss-green    A3-C4
+  pine:      { h:35,  s:75, l:48 },   // warm amber    D4-F#4
+  leaf:      { h:52,  s:80, l:52 },   // gold          A4-C5
+};
+
+function hslStr(col, alpha=1) {
+  return `hsla(${col.h},${col.s}%,${col.l}%,${alpha})`;
+}
+
+// Instrument + mood aware tone player
+function playTone(freq, _type, _col, duration=1.8, x=0, y=0) {
+  if(!audioCtx) return;
+  if(soundSettings.instrument === 'silence') return;
+
+  const instr = INSTRUMENTS[soundSettings.instrument];
+  if(!instr) return;
+
+  const t = audioCtx.currentTime;
+  const pan = audioCtx.createStereoPanner();
+  pan.pan.value = Math.max(-0.7, Math.min(0.7, (x/W)*1.4 - 0.7));
+  pan.connect(audioCtx.destination);
+
+  function makeVoice(f, vol) {
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = instr.oscType;
+    osc.frequency.setValueAtTime(f, t);
+    if(instr.wobble) {
+      osc.frequency.setTargetAtTime(f*0.998, t+0.05, 0.3);
+    }
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(vol, t + instr.attackTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration * instr.decayMult);
+    osc.connect(gain); gain.connect(pan);
+    osc.start(t); osc.stop(t + duration * instr.decayMult + 0.05);
+  }
+
+  makeVoice(freq, instr.volume);
+  // harmonics
+  instr.harmonics.forEach(h => makeVoice(freq * h.ratio, h.vol));
+}
+
+// Play using object type — mood remaps the frequency
+function playObjTone(objType, duration, x, y) {
+  const freq = getMoodFreq(objType);
+  playTone(freq, null, null, duration, x, y);
+  return freq;
+}
+
+// Object type → audio + colour
+const OBJ_TYPES = {
+  lily_pad: {
+    freqs: [65.4, 73.4, 82.4, 87.3],   // C2 D2 E2 F2 — deep bowl
+    duration: 2.8,
+    oscType: 'sine',
+    pitchKey: 'bowl_low',
+    r: [22, 34],
+  },
+  acorn: {
+    freqs: [196, 220, 246.9, 261.6],    // G3 A3 B3 C4 — mid kalimba
+    duration: 1.3,
+    oscType: 'triangle',
+    pitchKey: 'kal_low',
+    r: [8, 14],
+  },
+  twig: {
+    freqs: [293.7, 329.6, 370, 392],    // D4 E4 F#4 G4 — wood tone
+    duration: 0.8,
+    oscType: 'triangle',
+    pitchKey: 'pine',
+    r: [10, 16],
+  },
+  leaf: {
+    freqs: [440, 493.9, 523.3, 587.3],  // A4 B4 C5 D5 — airy chime
+    duration: 0.7,
+    oscType: 'sine',
+    pitchKey: 'leaf',
+    r: [14, 22],
+  },
+  lotus: {
+    freqs: [698.5, 783.99, 880, 987.8], // F5 G5 A5 B5 — high crystalline
+    duration: 1.8,
+    oscType: 'sine',
+    pitchKey: 'leaf',
+    r: [9, 13],
+  },
+};
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREFLIES
+// ─────────────────────────────────────────────────────────────────────────────
+const FIREFLY_COUNT = 18;
+let fireflies = [];
+
+function initFireflies() {
+  fireflies = [];
+  for(let i = 0; i < FIREFLY_COUNT; i++) {
+    fireflies.push(makeFirefly());
+  }
+}
+
+function makeFirefly(fromEdge=false) {
+  let x, y;
+  if(fromEdge) {
+    const edge = Math.floor(Math.random()*4);
+    if(edge===0){ x=Math.random()*W; y=H*0.1; }
+    else if(edge===1){ x=W*0.95; y=H*0.15+Math.random()*H*0.7; }
+    else if(edge===2){ x=Math.random()*W; y=H*0.9; }
+    else { x=W*0.05; y=H*0.15+Math.random()*H*0.7; }
+  } else {
+    x = W*0.06 + Math.random()*W*0.88;
+    y = H*0.1  + Math.random()*H*0.82;
+  }
+
+  return {
+    x, y,
+    vx: (Math.random()-0.5)*0.35,
+    vy: (Math.random()-0.5)*0.35,
+    // wander
+    wanderAngle: Math.random()*Math.PI*2,
+    // blink — each firefly has its own rhythm
+    blinkPhase:  Math.random()*Math.PI*2,
+    blinkSpeed:  0.0008 + Math.random()*0.0012,  // ~1.2–2.5s cycle
+    blinkOn:     false,
+    // glow size varies per firefly
+    baseR:       2.0 + Math.random()*1.4,
+    // colour — warm yellow-green spectrum
+    hue:         48 + Math.random()*30,   // gold to yellow-green
+    // lifetime fade in
+    opacity:     fromEdge ? 0 : 0.6 + Math.random()*0.4,
+    // small upward bias when lit — fireflies drift up when glowing
+    litBias:     0,
+  };
+}
+
+function updateFireflies(dt) {
+  const now = performance.now();
+
+  fireflies.forEach(ff => {
+    ff.blinkPhase += ff.blinkSpeed * dt;
+
+    // blink envelope: smooth sine → threshold gives natural on/off with soft fade
+    const rawBlink = Math.sin(ff.blinkPhase);
+    const prevOn = ff.blinkOn;
+    ff.blinkOn = rawBlink > 0.3;
+    ff.blinkAlpha = ff.blinkOn ? Math.pow((rawBlink - 0.3)/0.7, 0.5) : 0;
+
+    // upward drift when lit
+    ff.litBias = ff.blinkOn ? -0.06 : 0.01;
+
+    // gentle wander
+    ff.wanderAngle += (Math.random()-0.5)*0.08;
+    ff.vx += Math.cos(ff.wanderAngle)*0.008;
+    ff.vy += Math.sin(ff.wanderAngle)*0.008 + ff.litBias*0.1;
+
+    // friction
+    ff.vx *= 0.978;
+    ff.vy *= 0.978;
+
+    // speed cap — fireflies are slow; sprite wanders at up to 1.8 so they'll always lag
+    const spd = Math.hypot(ff.vx, ff.vy);
+    if(spd > 0.75) { ff.vx *= 0.75/spd; ff.vy *= 0.75/spd; }
+
+    ff.x += ff.vx;
+    ff.y += ff.vy;
+
+    // fade in
+    if(ff.opacity < 1) ff.opacity = Math.min(1, ff.opacity + 0.005);
+
+    // soft boundary — wrap loosely back inward
+    if(ff.x < W*0.02) ff.vx += 0.05;
+    if(ff.x > W*0.98) ff.vx -= 0.05;
+    if(ff.y < H*0.05) ff.vy += 0.05;
+    if(ff.y > H*0.95) ff.vy -= 0.05;
+
+    // sprite proximity — fireflies are attracted to the sprite's warm light
+    // pull radius is wide but force is gentle — they drift toward it, never catch it
+    const sdist = Math.hypot(ff.x - sprite.x, ff.y - sprite.y);
+    if(sdist < 220 && sdist > 0) {
+      const pull = 0.022 * (1 - sdist/220);
+      ff.vx += (sprite.x - ff.x)/sdist * pull;
+      ff.vy += (sprite.y - ff.y)/sdist * pull;
+    }
+
+  });
+}
+
+function drawFireflies() {
+  fireflies.forEach(ff => {
+    if(!ff.blinkOn && ff.blinkAlpha <= 0) return;
+
+    const alpha = (ff.blinkAlpha || 0) * ff.opacity;
+    if(alpha <= 0.01) return;
+
+    ctx.save();
+
+    // outer soft halo
+    const haloR = ff.baseR * (5 + ff.blinkAlpha * 7);
+    const halo = ctx.createRadialGradient(ff.x, ff.y, 0, ff.x, ff.y, haloR);
+    halo.addColorStop(0,   `hsla(${ff.hue},90%,72%,${alpha * 0.45})`);
+    halo.addColorStop(0.4, `hsla(${ff.hue},85%,60%,${alpha * 0.18})`);
+    halo.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(ff.x, ff.y, haloR, 0, Math.PI*2);
+    ctx.fill();
+
+    // bright core
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor  = `hsla(${ff.hue},95%,80%,1)`;
+    ctx.shadowBlur   = 8;
+    ctx.fillStyle    = `hsla(${ff.hue},100%,88%,1)`;
+    ctx.beginPath();
+    ctx.arc(ff.x, ff.y, ff.baseR * (0.7 + ff.blinkAlpha*0.5), 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  });
+}
+
+
+
+function buildBackground() {
+  bgCanvas = document.createElement('canvas');
+  bgCanvas.width  = W;
+  bgCanvas.height = H;
+  bgCtx = bgCanvas.getContext('2d');
+  renderBG(bgCtx, W, H);
+}
+
+function renderBG(c, W, H) {
+  // ── Deep water base ──────────────────────────────────────────────────────
+  const waterGrd = c.createRadialGradient(W*0.5, H*0.45, 0, W*0.5, H*0.5, W*0.75);
+  waterGrd.addColorStop(0,   '#0a2a22');
+  waterGrd.addColorStop(0.4, '#071e18');
+  waterGrd.addColorStop(0.8, '#041410');
+  waterGrd.addColorStop(1,   '#020c09');
+  c.fillStyle = waterGrd;
+  c.fillRect(0, 0, W, H);
+
+  // ── Depth variation patches (darker deep spots) ───────────────────────────
+  [
+    {x:0.3, y:0.45, r:0.22, dark:'rgba(2,8,6,0.5)'},
+    {x:0.65,y:0.60, r:0.18, dark:'rgba(2,8,6,0.4)'},
+    {x:0.5, y:0.75, r:0.14, dark:'rgba(2,8,6,0.35)'},
+  ].forEach(p => {
+    const dg = c.createRadialGradient(p.x*W,p.y*H,0, p.x*W,p.y*H,p.r*W);
+    dg.addColorStop(0, p.dark);
+    dg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = dg; c.fillRect(0,0,W,H);
+  });
+
+  // ── Caustic light patterns (shimmer on the water floor) ───────────────────
+  c.save();
+  for(let i=0; i<120; i++) {
+    const x = Math.random()*W, y = Math.random()*H;
+    const s = 8 + Math.random()*28;
+    const a = Math.random()*0.055;
+    const cg = c.createRadialGradient(x,y,0,x,y,s);
+    cg.addColorStop(0,`rgba(80,200,160,${a})`);
+    cg.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=cg;
+    c.beginPath(); c.ellipse(x,y,s,s*0.4,Math.random()*Math.PI,0,Math.PI*2); c.fill();
+  }
+  c.restore();
+
+  // ── Fine water surface texture ────────────────────────────────────────────
+  c.save();
+  for(let i=0; i<600; i++) {
+    const x=Math.random()*W, y=Math.random()*H;
+    const len = 4+Math.random()*18;
+    const a = Math.random()*Math.PI;
+    c.strokeStyle=`rgba(100,200,170,${0.012+Math.random()*0.022})`;
+    c.lineWidth=0.5+Math.random()*0.5;
+    c.beginPath();
+    c.moveTo(x,y);
+    c.lineTo(x+Math.cos(a)*len, y+Math.sin(a)*len*0.25);
+    c.stroke();
+  }
+  c.restore();
+
+  // ── Bank / shore edge around the perimeter ────────────────────────────────
+  // Soft grassy/muddy bank visible at edges
+  const bankW = W*0.10;
+  const bankH = H*0.12;
+
+  // top bank
+  const tBank = c.createLinearGradient(0,0,0,bankH);
+  tBank.addColorStop(0,'#1a2e14'); tBank.addColorStop(0.5,'#142410'); tBank.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=tBank; c.fillRect(0,0,W,bankH);
+
+  // bottom bank
+  const bBank = c.createLinearGradient(0,H-bankH,0,H);
+  bBank.addColorStop(0,'rgba(0,0,0,0)'); bBank.addColorStop(0.5,'#142410'); bBank.addColorStop(1,'#1a2e14');
+  c.fillStyle=bBank; c.fillRect(0,H-bankH,W,bankH);
+
+  // left bank
+  const lBank = c.createLinearGradient(0,0,bankW,0);
+  lBank.addColorStop(0,'#1a2e14'); lBank.addColorStop(0.5,'#142410'); lBank.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=lBank; c.fillRect(0,0,bankW,H);
+
+  // right bank
+  const rBank = c.createLinearGradient(W-bankW,0,W,0);
+  rBank.addColorStop(0,'rgba(0,0,0,0)'); rBank.addColorStop(0.5,'#142410'); rBank.addColorStop(1,'#1a2e14');
+  c.fillStyle=rBank; c.fillRect(W-bankW,0,bankW,H);
+
+  // ── Reed/grass silhouettes along bank edges ───────────────────────────────
+  function drawReed(bx, by, height, lean) {
+    c.save(); c.translate(bx, by);
+    c.strokeStyle='rgba(30,55,20,0.75)'; c.lineWidth=1.5;
+    c.beginPath(); c.moveTo(0,0);
+    c.bezierCurveTo(lean*0.3,-height*0.3, lean*0.6,-height*0.7, lean,-height);
+    c.stroke();
+    // seed head
+    c.fillStyle='rgba(40,65,25,0.7)';
+    c.beginPath(); c.ellipse(lean,-height,2,6,-0.2,0,Math.PI*2); c.fill();
+    c.restore();
+  }
+  // top edge reeds
+  for(let i=0;i<22;i++) {
+    drawReed(W*0.04+i*(W*0.045), H*0.08+Math.random()*H*0.04,
+             30+Math.random()*25, (Math.random()-0.5)*12);
+  }
+  // bottom edge reeds
+  for(let i=0;i<18;i++) {
+    drawReed(W*0.05+i*(W*0.052), H*0.96-Math.random()*H*0.03,
+             -(25+Math.random()*20), (Math.random()-0.5)*10);
+  }
+  // left edge reeds
+  for(let i=0;i<12;i++) {
+    drawReed(W*0.06+Math.random()*W*0.02, H*0.1+i*(H*0.075),
+             28+Math.random()*20, 8+Math.random()*8);
+  }
+  // right edge reeds
+  for(let i=0;i<12;i++) {
+    drawReed(W*0.95-Math.random()*W*0.02, H*0.1+i*(H*0.075),
+             28+Math.random()*20, -(8+Math.random()*8));
+  }
+
+  // ── Soft bank rocks ───────────────────────────────────────────────────────
+  [[0.03,0.25,18,10],[0.08,0.72,14,8],[0.92,0.35,16,9],[0.96,0.68,12,7],
+   [0.35,0.03,20,10],[0.65,0.04,15,8],[0.40,0.97,18,9],[0.72,0.96,13,7]
+  ].forEach(([xf,yf,rw,rh])=>{
+    c.save(); c.translate(xf*W,yf*H);
+    const rg=c.createRadialGradient(-rw*0.2,-rh*0.2,0,0,0,rw);
+    rg.addColorStop(0,'#3a3828'); rg.addColorStop(0.6,'#252318'); rg.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=rg; c.scale(1,rh/rw);
+    c.beginPath(); c.arc(0,0,rw,0,Math.PI*2); c.fill();
+    c.restore();
+  });
+
+  // ── Subtle reflection shimmer lines ──────────────────────────────────────
+  c.save();
+  for(let i=0;i<8;i++) {
+    const y = H*0.1 + Math.random()*H*0.8;
+    const rg = c.createLinearGradient(0,y,W,y);
+    rg.addColorStop(0,'rgba(0,0,0,0)');
+    rg.addColorStop(0.3+Math.random()*0.2,`rgba(60,160,130,${0.015+Math.random()*0.02})`);
+    rg.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=rg; c.fillRect(0,y-0.5,W,1.5);
+  }
+  c.restore();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OBJECTS
+// ─────────────────────────────────────────────────────────────────────────────
+let objects = [];
+let objectIdCounter = 0;
+
+function randomFreq(type) {
+  const f = OBJ_TYPES[type].freqs;
+  return f[Math.floor(Math.random()*f.length)];
+}
+
+function spawnObject(type, x, y) {
+  const def = OBJ_TYPES[type];
+  const r = def.r[0] + Math.random()*(def.r[1]-def.r[0]);
+  return {
+    id: objectIdCounter++,
+    type,
+    x, y,
+    vx: 0, vy: 0,
+    angle: Math.random()*Math.PI*2,
+    spin: 0,
+    r,
+    freq: randomFreq(type),
+    pitchKey: def.pitchKey,
+    opacity: 1,
+    scale: 1,
+    // for leaves: autumnal colour variation
+    leafHue: 20 + Math.random()*60,    // warm orange-yellow-brown
+    leafSat: 40 + Math.random()*45,
+    leafLight: 28 + Math.random()*22,
+    // spawning-in fade
+    born: performance.now(),
+    // fragments (for pine cones)
+    fragments: null,
+    // cooldown to prevent rapid re-collisions
+    hitCooldown: 0,
+    // drift direction for natural movement
+    driftAngle: Math.random()*Math.PI*2,
+    driftSpeed: 0,
+  };
+}
+
+function populateObjects() {
+  objects = [];
+  const zones = [];
+
+  function zoneOk(x,y,r) {
+    return zones.every(z => Math.hypot(x-z.x, y-z.y) > r + z.r + 12);
+  }
+
+  function tryPlace(type, attempts=40) {
+    const def = OBJ_TYPES[type];
+    const r = (def.r[0]+def.r[1])/2;
+    for(let i=0;i<attempts;i++) {
+      const x = W*0.07 + Math.random()*W*0.86;
+      const y = H*0.32 + Math.random()*H*0.58;
+      if(zoneOk(x,y,r)) {
+        zones.push({x,y,r});
+        return spawnObject(type, x, y);
+      }
+    }
+    return null;
+  }
+
+  const counts = { lily_pad:5, acorn:8, twig:6, leaf:9, lotus:3 };
+  Object.entries(counts).forEach(([type,n]) => {
+    for(let i=0;i<n;i++) {
+      const o = tryPlace(type);
+      if(o) objects.push(o);
+    }
+  });
+}
+
+function replenishObjects() {
+  const counts = { lily_pad:5, acorn:8, twig:6, leaf:9, lotus:3 };
+  const current = {};
+  objects.forEach(o => { current[o.type] = (current[o.type]||0)+1; });
+
+  Object.entries(counts).forEach(([type, target]) => {
+    const deficit = target - (current[type]||0);
+    for(let i=0;i<deficit;i++) {
+      // drift in from edge
+      const edge = Math.floor(Math.random()*4);
+      let x,y;
+      if(edge===0){ x=Math.random()*W; y=-30; }
+      else if(edge===1){ x=W+30; y=H*0.3+Math.random()*H*0.6; }
+      else if(edge===2){ x=Math.random()*W; y=H+30; }
+      else { x=-30; y=H*0.3+Math.random()*H*0.6; }
+
+      const o = spawnObject(type, x, y);
+      o.opacity = 0;
+      // drift toward centre-ish
+      const tx = W*0.15 + Math.random()*W*0.70;
+      const ty = H*0.35 + Math.random()*H*0.55;
+      const d = Math.hypot(tx-x, ty-y);
+      o.vx = (tx-x)/d * (0.15+Math.random()*0.2);
+      o.vy = (ty-y)/d * (0.15+Math.random()*0.2);
+      objects.push(o);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRITE
+// ─────────────────────────────────────────────────────────────────────────────
+const sprite = {
+  x: 0, y: 0,
+  vx: 0, vy: 0,
+  // organic wander
+  wanderAngle: Math.random()*Math.PI*2,
+  wanderSpeed: 0.8,
+  // breathing / alive pulse
+  pulsePhase: 0,
+  pulseAmt: 0,
+  // colour tint when note plays
+  noteCol: null,
+  noteFade: 0,
+  // trail
+  trail: [],
+  // touch target
+  touchTarget: null,
+  touchActive: false,
+};
+
+function initSprite() {
+  sprite.x = W * 0.5;
+  sprite.y = H * 0.55;
+  sprite.vx = (Math.random()-0.5)*0.8;
+  sprite.vy = (Math.random()-0.5)*0.8;
+  sprite.trail = [];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WAVES & PARTICLES
+// ─────────────────────────────────────────────────────────────────────────────
+let waves = [];
+let particles = [];
+
+function emitWave(x, y, pitchKey, fromSprite=false) {
+  const col = PITCH_COLOURS[pitchKey];
+  waves.push({
+    x, y,
+    r: fromSprite ? 8 : 4,
+    maxR: fromSprite ? 90 : 65,
+    col,
+    alpha: fromSprite ? 0.75 : 0.55,
+    born: performance.now(),
+    duration: 1200 + Math.random()*400,
+  });
+  // second fainter ring
+  waves.push({
+    x, y,
+    r: fromSprite ? 4 : 2,
+    maxR: fromSprite ? 130 : 95,
+    col,
+    alpha: fromSprite ? 0.35 : 0.22,
+    born: performance.now(),
+    duration: 1800 + Math.random()*400,
+  });
+}
+
+function emitParticles(x, y, pitchKey, vx, vy, count=14) {
+  const col = PITCH_COLOURS[pitchKey];
+  for(let i=0;i<count;i++) {
+    const a = Math.atan2(vy,vx) + (Math.random()-0.5)*Math.PI*1.4;
+    const spd = 0.8 + Math.random()*2.5;
+    particles.push({
+      x, y,
+      vx: Math.cos(a)*spd,
+      vy: Math.sin(a)*spd,
+      r: 1.2 + Math.random()*2.2,
+      col,
+      alpha: 0.7 + Math.random()*0.3,
+      life: 1.0,
+      decay: 0.012 + Math.random()*0.018,
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GHOST SPRITES — blue clones spawned on collision, repelled by touch
+// ─────────────────────────────────────────────────────────────────────────────
+let ghosts = [];
+const GHOST_LIFETIME = 4400; // ms before fully faded (20% shorter)
+const MAX_GHOSTS = 8;
+
+function spawnGhost(x, y, vx, vy) {
+  if(ghosts.length >= MAX_GHOSTS) return;
+  // birth flash wave
+  emitWave(x, y, 'bowl_mid', true);
+  emitParticles(x, y, 'bowl_mid', vx, vy, 10);
+
+  ghosts.push({
+    x, y,
+    vx: vx * -0.42 + (Math.random()-0.5)*1.05,  // fling away from sprite (30% slower)
+    vy: vy * -0.42 + (Math.random()-0.5)*1.05,
+    wanderAngle: Math.atan2(-vy, -vx) + (Math.random()-0.5)*0.8,
+    pulsePhase: Math.random()*Math.PI*2,
+    born: performance.now(),
+    life: 1.0,
+    // each ghost has a slightly different blue hue
+    hue: 190 + Math.random()*50,   // cyan→blue range
+    noteTimer: 600 + Math.random()*600,
+    hitCooldowns: {},              // keyed by object id
+    trail: [],
+  });
+
+  // play a soft spawn chime — high crystalline tone
+  playTone(523.3, null, null, 1.0, x, y);
+}
+
+function updateGhosts(dt) {
+  const now = performance.now();
+
+  ghosts = ghosts.filter(g => {
+    const age = now - g.born;
+    g.life = Math.max(0, 1 - age / GHOST_LIFETIME);
+    if(g.life <= 0) return false;
+
+    g.pulsePhase += dt * 0.002;
+    g.noteTimer  -= dt;
+
+    // repulsion from touch/cursor
+    if(sprite.touchActive && sprite.touchTarget) {
+      const tx = sprite.touchTarget.x, ty = sprite.touchTarget.y;
+      const dx = g.x - tx, dy = g.y - ty;
+      const d  = Math.hypot(dx, dy);
+      if(d < 150 && d > 0.1) {
+        const force = (1 - d/150) * 0.315;
+        g.vx += (dx/d) * force;
+        g.vy += (dy/d) * force;
+      }
+    }
+
+    // also gently repelled from main sprite itself
+    const sdx = g.x - sprite.x, sdy = g.y - sprite.y;
+    const sd  = Math.hypot(sdx, sdy);
+    if(sd < 80 && sd > 0.1) {
+      const force = (1 - sd/80) * 0.084;
+      g.vx += (sdx/sd) * force;
+      g.vy += (sdy/sd) * force;
+    }
+
+    // ghosts repel each other a little
+    ghosts.forEach(other => {
+      if(other === g) return;
+      const dx = g.x - other.x, dy = g.y - other.y;
+      const d  = Math.hypot(dx, dy);
+      if(d < 40 && d > 0.1) {
+        g.vx += (dx/d) * 0.056;
+        g.vy += (dy/d) * 0.056;
+      }
+    });
+
+    // organic wander — ghosts have nervous, erratic movement
+    g.wanderAngle += (Math.random()-0.5) * 0.12;
+    g.vx += Math.cos(g.wanderAngle) * 0.0175;
+    g.vy += Math.sin(g.wanderAngle) * 0.0175;
+
+    // friction
+    g.vx *= 0.974;
+    g.vy *= 0.974;
+
+    // speed cap — ghosts can move faster when fleeing
+    const spd = Math.hypot(g.vx, g.vy);
+    const maxSpd = sprite.touchActive ? 3.15 : 1.54; // 30% slower
+    if(spd > maxSpd) { g.vx *= maxSpd/spd; g.vy *= maxSpd/spd; }
+
+    g.x += g.vx;
+    g.y += g.vy;
+
+    // soft boundary bounce
+    const pad = 25;
+    if(g.x < pad)   { g.vx += 0.2; g.wanderAngle = 0; }
+    if(g.x > W-pad) { g.vx -= 0.2; g.wanderAngle = Math.PI; }
+    if(g.y < H*0.1) { g.vy += 0.2; }
+    if(g.y > H-pad) { g.vy -= 0.2; }
+
+    // trail
+    g.trail.unshift({x:g.x, y:g.y});
+    if(g.trail.length > 18) g.trail.pop();
+
+    // ghost–object collisions
+    const gr = 10;
+    objects.forEach(obj => {
+      const cd = g.hitCooldowns[obj.id] || 0;
+      if(cd > 0) { g.hitCooldowns[obj.id] = cd - dt; return; }
+
+      const dist = Math.hypot(g.x - obj.x, g.y - obj.y);
+      const minD = gr + obj.r * 0.75;
+      if(dist < minD && dist > 0.1) {
+        g.hitCooldowns[obj.id] = 500;
+
+        const nx = (g.x - obj.x) / dist;
+        const ny = (g.y - obj.y) / dist;
+        const relVx = g.vx - obj.vx, relVy = g.vy - obj.vy;
+        const dot = relVx*nx + relVy*ny;
+        const mass = obj.type==='lily_pad'?6 : obj.type==='acorn'?3 : 1.5;
+        const imp  = (2*dot)/(1+mass);
+
+        g.vx  -= imp * nx;
+        g.vy  -= imp * ny;
+        obj.vx += (imp/mass) * nx * 0.4;
+        obj.vy += (imp/mass) * ny * 0.4;
+        obj.spin += imp * 0.06;
+
+        // push apart
+        const ov = minD - dist;
+        g.x += nx * ov * 0.6;
+        g.y += ny * ov * 0.6;
+
+        // blue-tinted sound — ghost plays a higher, ghostlier version of the object tone
+        const def = OBJ_TYPES[obj.type];
+        const impact = Math.min(1, Math.hypot(relVx, relVy)/3);
+        if(impact > 0.05) {
+          playTone(getMoodFreq(obj.type) * 2, null, null, def.duration * 0.6, g.x, g.y);
+          // blue wave from ghost position
+          waves.push({
+            x: g.x, y: g.y,
+            r: 4, maxR: 55,
+            col: {h: g.hue, s: 80, l: 65},
+            alpha: 0.5 * g.life,
+            born: performance.now(),
+            duration: 900,
+          });
+          emitParticles(g.x, g.y, 'bowl_mid', g.vx, g.vy, Math.floor(5 + impact*7));
+        }
+      }
+    });
+
+    // periodic ambient note — ghosts hum softly as they drift
+    if(g.noteTimer <= 0 && g.life > 0.2) {
+      // ghost hums a scale note from the current mood — slightly higher and ghostlier
+      const scale = SCALES[soundSettings.mood];
+      const ghostRoot = 220; // A3 base
+      const freq = ghostRoot * scale.ratios[Math.floor(Math.random()*scale.ratios.length)] * (Math.random()<0.5?1:2);
+      playTone(freq * (1 + (1-g.life)*0.5), 'sine', 'bowl_mid', 0.8 * g.life, g.x, g.y);
+      // tiny ambient ripple
+      waves.push({
+        x: g.x, y: g.y,
+        r: 2, maxR: 30,
+        col: {h: g.hue, s: 75, l: 70},
+        alpha: 0.3 * g.life,
+        born: performance.now(),
+        duration: 700,
+      });
+      g.noteTimer = 1800 + Math.random()*2000;
+    }
+
+    return true;
+  });
+}
+
+function drawGhosts() {
+  ghosts.forEach(g => {
+    const alpha = g.life;
+    const pulse = 1.0 + Math.sin(g.pulsePhase)*0.15;
+    const size  = 11 * pulse;
+
+    // trail — blue wispy
+    g.trail.forEach((pt, i) => {
+      const t = (1 - i/g.trail.length) * alpha;
+      ctx.save();
+      ctx.globalAlpha = t * 0.15;
+      ctx.fillStyle = `hsla(${g.hue},90%,70%,1)`;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, size * t * 0.55, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // outer halo
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.4;
+    const halo = ctx.createRadialGradient(g.x,g.y,0, g.x,g.y,44);
+    halo.addColorStop(0, `hsla(${g.hue},85%,72%,0.3)`);
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(g.x, g.y, 44, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // orb
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor  = `hsla(${g.hue},100%,75%,${alpha})`;
+    ctx.shadowBlur   = 14;
+
+    const orb = ctx.createRadialGradient(g.x-size*0.3,g.y-size*0.3,0, g.x,g.y,size);
+    orb.addColorStop(0, `hsla(${g.hue},60%,95%,0.95)`);
+    orb.addColorStop(0.35,`hsla(${g.hue},80%,72%,0.88)`);
+    orb.addColorStop(0.75,`hsla(${g.hue},90%,52%,0.55)`);
+    orb.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = orb;
+    ctx.beginPath(); ctx.arc(g.x, g.y, size, 0, Math.PI*2); ctx.fill();
+
+    // bright core
+    ctx.fillStyle = `hsla(${g.hue},40%,96%,0.9)`;
+    ctx.beginPath(); ctx.arc(g.x-size*0.18, g.y-size*0.18, size*0.28, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+
+let lastCollisionTime = {};
+
+function checkCollisions() {
+  const now = performance.now();
+  const sr = 12; // sprite collision radius
+
+  objects.forEach(obj => {
+    if(obj.hitCooldown > 0) return;
+    const dist = Math.hypot(sprite.x - obj.x, sprite.y - obj.y);
+    const minDist = sr + obj.r * 0.75;
+
+    if(dist < minDist && dist > 0.1) {
+      const key = `${obj.id}`;
+      if(lastCollisionTime[key] && now - lastCollisionTime[key] < 600) return;
+      lastCollisionTime[key] = now;
+      obj.hitCooldown = 40;
+
+      const nx = (sprite.x - obj.x) / dist;
+      const ny = (sprite.y - obj.y) / dist;
+
+      // physics response
+      const spd = Math.hypot(sprite.vx, sprite.vy);
+      const relVx = sprite.vx - obj.vx;
+      const relVy = sprite.vy - obj.vy;
+      const dot = relVx*nx + relVy*ny;
+
+      // restitution
+      const mass = obj.type==='lily_pad'?6 : obj.type==='acorn'?3 : obj.type==='twig'?1.5 : 0.8;
+      const imp = (2*dot)/(1+mass);
+      sprite.vx -= imp * nx;
+      sprite.vy -= imp * ny;
+      obj.vx += (imp/mass) * nx * 0.6;
+      obj.vy += (imp/mass) * ny * 0.6;
+      obj.spin += imp * 0.08;
+
+      // push apart
+      const overlap = minDist - dist;
+      sprite.x += nx * overlap * 0.6;
+      sprite.y += ny * overlap * 0.6;
+      obj.x -= nx * overlap * 0.4;
+      obj.y -= ny * overlap * 0.4;
+
+      // speed cap for sprite
+      const spdAfter = Math.hypot(sprite.vx, sprite.vy);
+      if(spdAfter > 3.5) { sprite.vx *= 3.5/spdAfter; sprite.vy *= 3.5/spdAfter; }
+
+      // twig: snaps into fragments on hard hit
+      if(obj.type==='twig' && Math.hypot(sprite.vx,sprite.vy)>1.0) {
+        scatterTwig(obj);
+        return;
+      }
+
+      // sound + visuals
+      const def = OBJ_TYPES[obj.type];
+      const impact = Math.min(1, Math.hypot(relVx,relVy)/3);
+      if(impact > 0.05) {
+        playObjTone(obj.type, def.duration * (0.7+impact*0.3), sprite.x, sprite.y);
+        emitWave(sprite.x, sprite.y, obj.pitchKey, true);
+        emitWave(obj.x, obj.y, obj.pitchKey, false);
+        emitParticles(obj.x, obj.y, obj.pitchKey, sprite.vx, sprite.vy, Math.floor(8+impact*12));
+
+        // sprite colour pulse
+        sprite.noteCol = PITCH_COLOURS[obj.pitchKey];
+        sprite.noteFade = 1.0;
+        sprite.pulseAmt = 1.0;
+
+        // spawn a blue ghost — mitosis!
+        spawnGhost(sprite.x, sprite.y, sprite.vx, sprite.vy);
+      }
+    }
+  });
+
+  // object-object collisions (light)
+  for(let i=0;i<objects.length;i++) {
+    for(let j=i+1;j<objects.length;j++) {
+      const a=objects[i], b=objects[j];
+      if(a.hitCooldown>0||b.hitCooldown>0) continue;
+      const spd = Math.hypot(a.vx-b.vx, a.vy-b.vy);
+      if(spd<0.15) continue;
+      const d = Math.hypot(a.x-b.x, a.y-b.y);
+      const md = a.r*0.7+b.r*0.7;
+      if(d<md && d>0.1) {
+        const nx=(a.x-b.x)/d, ny=(a.y-b.y)/d;
+        const dot=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+        if(dot<0) continue;
+        a.vx -= dot*nx*0.5; a.vy -= dot*ny*0.5;
+        b.vx += dot*nx*0.5; b.vy += dot*ny*0.5;
+        const ov=(md-d)*0.5;
+        a.x+=nx*ov; a.y+=ny*ov;
+        b.x-=nx*ov; b.y-=ny*ov;
+        a.hitCooldown=20; b.hitCooldown=20;
+        if(spd>0.4) {
+          setTimeout(()=>{
+            playObjTone(a.type, 0.5, (a.x+b.x)/2, (a.y+b.y)/2);
+            emitWave((a.x+b.x)/2,(a.y+b.y)/2, a.pitchKey, false);
+          }, 0);
+        }
+      }
+    }
+  }
+}
+
+function scatterTwig(obj) {
+  const count = 2 + Math.floor(Math.random()*2);
+  for(let i=0;i<count;i++) {
+    const a = Math.random()*Math.PI*2;
+    const spd = 0.5+Math.random()*1.5;
+    const s = spawnObject('acorn', obj.x, obj.y);
+    s.r = 4+Math.random()*5;
+    s.freq = OBJ_TYPES.twig.freqs[Math.floor(Math.random()*4)];
+    s.pitchKey = 'pine';
+    s.vx = Math.cos(a)*spd;
+    s.vy = Math.sin(a)*spd;
+    objects.push(s);
+  }
+  objects.splice(objects.indexOf(obj), 1);
+  emitParticles(obj.x, obj.y, 'pine', sprite.vx, sprite.vy, 18);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHYSICS UPDATE
+// ─────────────────────────────────────────────────────────────────────────────
+let lastReplenish = 0;
+
+function updateSprite(dt) {
+  sprite.pulsePhase += dt * 0.0018;
+  if(sprite.pulseAmt > 0) sprite.pulseAmt -= dt * 0.002;
+  if(sprite.noteFade > 0) sprite.noteFade -= dt * 0.0015;
+
+  if(sprite.touchActive && sprite.touchTarget) {
+    // attracted to touch
+    const dx = sprite.touchTarget.x - sprite.x;
+    const dy = sprite.touchTarget.y - sprite.y;
+    const d = Math.hypot(dx,dy);
+    if(d > 3) {
+      sprite.vx += (dx/d) * Math.min(d*0.006, 0.25);
+      sprite.vy += (dy/d) * Math.min(d*0.006, 0.25);
+    }
+  } else {
+    // organic wander — steer toward wander angle
+    sprite.wanderAngle += (Math.random()-0.5)*0.06;
+    // occasional bigger turn (curiosity)
+    if(Math.random()<0.004) sprite.wanderAngle += (Math.random()-0.5)*1.2;
+
+    const wx = Math.cos(sprite.wanderAngle);
+    const wy = Math.sin(sprite.wanderAngle);
+    sprite.vx += wx * 0.018;
+    sprite.vy += wy * 0.018;
+  }
+
+  // gentle friction
+  const friction = sprite.touchActive ? 0.972 : 0.985;
+  sprite.vx *= friction;
+  sprite.vy *= friction;
+
+  // speed limits
+  const maxSpd = sprite.touchActive ? 4.0 : 1.8;
+  const spd = Math.hypot(sprite.vx, sprite.vy);
+  if(spd > maxSpd) { sprite.vx *= maxSpd/spd; sprite.vy *= maxSpd/spd; }
+  // keep minimum drift
+  if(spd < 0.2 && !sprite.touchActive) {
+    sprite.vx += Math.cos(sprite.wanderAngle)*0.2;
+    sprite.vy += Math.sin(sprite.wanderAngle)*0.2;
+  }
+
+  sprite.x += sprite.vx;
+  sprite.y += sprite.vy;
+
+  // boundary — strong redirect that points wander angle back into field
+  const pad = 30;
+  if(sprite.x < pad) {
+    sprite.vx += 0.4;
+    sprite.wanderAngle = (Math.random()*Math.PI*0.8) - Math.PI*0.4; // point right
+  }
+  if(sprite.x > W-pad) {
+    sprite.vx -= 0.4;
+    sprite.wanderAngle = Math.PI + (Math.random()*Math.PI*0.8) - Math.PI*0.4; // point left
+  }
+  if(sprite.y < H*0.12) {
+    sprite.vy += 0.4;
+    sprite.wanderAngle = Math.PI*0.5 + (Math.random()*Math.PI*0.8) - Math.PI*0.4; // point down
+  }
+  if(sprite.y > H-pad) {
+    sprite.vy -= 0.4;
+    sprite.wanderAngle = -Math.PI*0.5 + (Math.random()*Math.PI*0.8) - Math.PI*0.4; // point up
+  }
+
+  // trail
+  sprite.trail.unshift({x:sprite.x, y:sprite.y, t:performance.now()});
+  if(sprite.trail.length > 28) sprite.trail.pop();
+}
+
+function updateObjects(dt) {
+  const now = performance.now();
+  objects.forEach(obj => {
+    if(obj.hitCooldown > 0) obj.hitCooldown--;
+
+    // fade in when spawning from edge
+    const age = now - obj.born;
+    if(obj.opacity < 1) obj.opacity = Math.min(1, obj.opacity + 0.008);
+
+    // friction — leaves drift more, stones stop fast
+    const fric = obj.type==='leaf' ? 0.982 : obj.type==='lily_pad' ? 0.975 : obj.type==='twig' ? 0.962 : 0.945;
+    obj.vx *= fric;
+    obj.vy *= fric;
+    obj.spin *= 0.94;
+    obj.angle += obj.spin;
+
+    obj.x += obj.vx;
+    obj.y += obj.vy;
+
+    // boundary wrap — soft stop at edge or remove if too far
+    const margin = 60;
+    if(obj.x<-margin||obj.x>W+margin||obj.y<-margin||obj.y>H+margin) {
+      obj.opacity -= 0.03;
+      if(obj.opacity<=0) obj._dead = true;
+    }
+  });
+  objects = objects.filter(o=>!o._dead);
+}
+
+function updateWaves(dt) {
+  const now = performance.now();
+  waves = waves.filter(w => {
+    const age = now - w.born;
+    const t = age / w.duration;
+    if(t>=1) return false;
+    w.r = w.r + (w.maxR - w.r) * 0.06;
+    w.alpha *= 0.975;
+    return true;
+  });
+}
+
+function updateParticles(dt) {
+  particles = particles.filter(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.94;
+    p.vy *= 0.94;
+    p.vy += 0.02; // slight gravity
+    p.life -= p.decay;
+    p.alpha = p.life;
+    return p.life > 0;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DRAWING
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Lily pad ─────────────────────────────────────────────────────────────────
+function drawLilyPad(c, x, y, r, angle) {
+  c.save(); c.translate(x,y); c.rotate(angle);
+  // shadow beneath
+  c.save();
+  const sh = c.createRadialGradient(2,4,0,2,4,r*1.2);
+  sh.addColorStop(0,'rgba(0,0,0,0.3)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=sh; c.scale(1,0.45);
+  c.beginPath(); c.arc(2,6,r*1.2,0,Math.PI*2); c.fill();
+  c.restore();
+  // pad body
+  const pg = c.createRadialGradient(-r*0.15,-r*0.1,0,0,0,r);
+  pg.addColorStop(0,'rgba(60,110,45,0.92)');
+  pg.addColorStop(0.5,'rgba(38,82,30,0.88)');
+  pg.addColorStop(1,'rgba(22,55,18,0.75)');
+  c.fillStyle=pg;
+  c.beginPath();
+  c.moveTo(0,0);
+  // circle with notch cut out
+  c.arc(0,0,r, 0.22, Math.PI*2-0.22);
+  c.closePath(); c.fill();
+  // rim highlight
+  c.strokeStyle='rgba(90,150,60,0.35)'; c.lineWidth=1.2;
+  c.beginPath(); c.arc(0,0,r,0.22,Math.PI*2-0.22); c.stroke();
+  // veins
+  c.strokeStyle='rgba(30,70,20,0.3)'; c.lineWidth=0.7;
+  for(let i=0;i<7;i++) {
+    const va = (i/7)*Math.PI*2;
+    c.beginPath(); c.moveTo(0,0); c.lineTo(Math.cos(va)*r*0.88, Math.sin(va)*r*0.88); c.stroke();
+  }
+  c.restore();
+}
+
+// ── Acorn ─────────────────────────────────────────────────────────────────────
+function drawAcorn(c, x, y, r, angle) {
+  c.save(); c.translate(x,y); c.rotate(angle);
+  // cap
+  c.fillStyle='rgba(60,40,18,0.9)';
+  c.beginPath(); c.ellipse(0,-r*0.15,r*0.72,r*0.42,0,0,Math.PI*2); c.fill();
+  // cap texture
+  c.strokeStyle='rgba(40,25,10,0.4)'; c.lineWidth=0.6;
+  for(let i=-2;i<=2;i++) {
+    c.beginPath(); c.moveTo(i*r*0.2-r*0.5,-r*0.15); c.lineTo(i*r*0.2+r*0.5,-r*0.15); c.stroke();
+  }
+  // stem
+  c.strokeStyle='rgba(45,28,10,0.8)'; c.lineWidth=1.2;
+  c.beginPath(); c.moveTo(0,-r*0.52); c.lineTo(r*0.15,-r*0.78); c.stroke();
+  // body
+  const ag = c.createRadialGradient(-r*0.2,-r*0.1,0,0,0,r);
+  ag.addColorStop(0,'rgba(160,110,50,0.95)');
+  ag.addColorStop(0.6,'rgba(120,75,28,0.9)');
+  ag.addColorStop(1,'rgba(70,40,12,0.8)');
+  c.fillStyle=ag;
+  c.beginPath(); c.ellipse(0,r*0.1,r*0.62,r*0.78,0,0,Math.PI*2); c.fill();
+  // shine
+  c.fillStyle='rgba(200,160,90,0.18)';
+  c.beginPath(); c.ellipse(-r*0.18,-r*0.05,r*0.22,r*0.32,-0.3,0,Math.PI*2); c.fill();
+  c.restore();
+}
+
+// ── Twig ─────────────────────────────────────────────────────────────────────
+function drawTwig(c, x, y, r, angle) {
+  c.save(); c.translate(x,y); c.rotate(angle);
+  const len = r*2.2;
+  // main twig
+  c.strokeStyle='rgba(55,35,15,0.88)'; c.lineWidth=r*0.28;
+  c.lineCap='round';
+  c.beginPath(); c.moveTo(-len/2,-1); c.bezierCurveTo(-len*0.1,2,len*0.1,-2,len/2,1); c.stroke();
+  // small side branches
+  c.lineWidth=r*0.14;
+  c.beginPath(); c.moveTo(-len*0.1,0); c.lineTo(-len*0.1-5,-r*0.7); c.stroke();
+  c.beginPath(); c.moveTo(len*0.15,0); c.lineTo(len*0.15+4,r*0.6); c.stroke();
+  c.restore();
+}
+
+// ── Leaf ─────────────────────────────────────────────────────────────────────
+function drawLeaf(c, x, y, r, angle, hue, sat, light) {
+  const len = r*2;
+  c.save(); c.translate(x,y); c.rotate(angle);
+  c.fillStyle=`hsla(${hue},${sat}%,${light}%,0.78)`;
+  c.beginPath();
+  c.moveTo(0,-len/2);
+  c.bezierCurveTo(len*0.38,-len*0.3, len*0.38,len*0.3, 0,len/2);
+  c.bezierCurveTo(-len*0.38,len*0.3, -len*0.38,-len*0.3, 0,-len/2);
+  c.fill();
+  c.strokeStyle='rgba(0,0,0,0.12)'; c.lineWidth=0.7;
+  c.beginPath(); c.moveTo(0,-len/2); c.lineTo(0,len/2); c.stroke();
+  c.restore();
+}
+
+// ── Lotus bud ─────────────────────────────────────────────────────────────────
+function drawLotus(c, x, y, r, angle) {
+  c.save(); c.translate(x,y); c.rotate(angle);
+  // short stem
+  c.strokeStyle='rgba(40,80,30,0.7)'; c.lineWidth=1.5;
+  c.beginPath(); c.moveTo(0,r*0.8); c.lineTo(0,r*0.3); c.stroke();
+  // petals — layered
+  const petalCols = ['rgba(240,160,180,0.82)','rgba(220,120,150,0.75)','rgba(200,90,130,0.7)'];
+  [3,3,2].forEach((count,layer) => {
+    for(let i=0;i<count;i++) {
+      const pa = (i/count)*Math.PI*2 + layer*0.4;
+      const pr = r*(0.55-layer*0.08);
+      c.save(); c.translate(Math.cos(pa)*pr*0.35, Math.sin(pa)*pr*0.35-layer*1.5);
+      c.rotate(pa);
+      c.fillStyle=petalCols[layer];
+      c.beginPath();
+      c.moveTo(0,0);
+      c.bezierCurveTo(-r*0.28,-r*0.6, r*0.28,-r*0.6, 0,0);
+      c.fill();
+      c.restore();
+    }
+  });
+  // centre stamen
+  c.fillStyle='rgba(255,220,80,0.9)';
+  c.beginPath(); c.arc(0,-r*0.12,r*0.18,0,Math.PI*2); c.fill();
+  c.restore();
+}
+
+function drawObjects() {
+  objects.forEach(obj => {
+    ctx.save();
+    ctx.globalAlpha = obj.opacity;
+    if(obj.type==='lily_pad') {
+      drawLilyPad(ctx, obj.x, obj.y, obj.r, obj.angle);
+    } else if(obj.type==='acorn') {
+      drawAcorn(ctx, obj.x, obj.y, obj.r, obj.angle);
+    } else if(obj.type==='twig') {
+      drawTwig(ctx, obj.x, obj.y, obj.r, obj.angle);
+    } else if(obj.type==='leaf') {
+      drawLeaf(ctx, obj.x, obj.y, obj.r, obj.angle, obj.leafHue, obj.leafSat, obj.leafLight);
+    } else if(obj.type==='lotus') {
+      drawLotus(ctx, obj.x, obj.y, obj.r, obj.angle);
+    }
+    ctx.restore();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KOI & TURTLES — subsurface layer
+// ─────────────────────────────────────────────────────────────────────────────
+let koi = [];
+let turtles = [];
+
+const KOI_PATTERNS = [
+  { body:'rgba(240,90,40,0.72)',  spots:'rgba(255,255,255,0.55)' }, // red/white
+  { body:'rgba(255,165,20,0.70)', spots:'rgba(255,255,255,0.50)' }, // orange/white
+  { body:'rgba(255,220,80,0.65)', spots:'rgba(200,80,30,0.45)'   }, // yellow/red
+  { body:'rgba(255,255,255,0.60)',spots:'rgba(220,70,30,0.50)'   }, // white/red
+  { body:'rgba(80,60,40,0.58)',   spots:'rgba(200,160,80,0.45)'  }, // dark/gold
+];
+
+function initKoi() {
+  koi = [];
+  for(let i=0;i<4;i++) {
+    koi.push(makeKoi());
+  }
+}
+
+function makeKoi() {
+  const pat = KOI_PATTERNS[Math.floor(Math.random()*KOI_PATTERNS.length)];
+  return {
+    x: W*0.15 + Math.random()*W*0.7,
+    y: H*0.15 + Math.random()*H*0.7,
+    vx: (Math.random()-0.5)*0.5,
+    vy: (Math.random()-0.5)*0.5,
+    wanderAngle: Math.random()*Math.PI*2,
+    speed: 0.25 + Math.random()*0.3,
+    length: 38 + Math.random()*28,
+    bodyCol: pat.body,
+    spotCol: pat.spots,
+    // spot positions (randomised per fish)
+    spots: Array.from({length:3},()=>({
+      t: 0.2+Math.random()*0.5,
+      side: (Math.random()-0.5)*0.5,
+      r: 0.08+Math.random()*0.1,
+    })),
+    tailPhase: Math.random()*Math.PI*2,
+    tailSpeed: 0.0018+Math.random()*0.001,
+    facing: Math.random()*Math.PI*2,
+    depth: 0.15+Math.random()*0.35, // 0=surface, 1=deep
+  };
+}
+
+function initTurtles() {
+  turtles = [];
+  for(let i=0;i<2;i++) {
+    turtles.push(makeTurtle());
+  }
+}
+
+function makeTurtle() {
+  return {
+    x: W*0.2 + Math.random()*W*0.6,
+    y: H*0.2 + Math.random()*H*0.6,
+    vx: (Math.random()-0.5)*0.18,
+    vy: (Math.random()-0.5)*0.18,
+    wanderAngle: Math.random()*Math.PI*2,
+    facing: Math.random()*Math.PI*2,
+    r: 18+Math.random()*12,
+    legPhase: Math.random()*Math.PI*2,
+    depth: 0.15+Math.random()*0.25, // shallow enough to always be visible
+  };
+}
+
+function updateKoi(dt) {
+  koi.forEach(k => {
+    k.tailPhase += k.tailSpeed * dt;
+    // lazy wander
+    k.wanderAngle += (Math.random()-0.5)*0.025;
+    k.vx += Math.cos(k.wanderAngle)*0.006;
+    k.vy += Math.sin(k.wanderAngle)*0.006;
+    k.vx *= 0.992; k.vy *= 0.992;
+    const spd = Math.hypot(k.vx,k.vy);
+    if(spd>k.speed){k.vx*=k.speed/spd;k.vy*=k.speed/spd;}
+    if(spd<0.08){k.vx+=Math.cos(k.wanderAngle)*0.08;k.vy+=Math.sin(k.wanderAngle)*0.08;}
+    k.x+=k.vx; k.y+=k.vy;
+    if(Math.abs(k.vx)>0.02||Math.abs(k.vy)>0.02) k.facing=Math.atan2(k.vy,k.vx);
+    // hard boundary redirect — point wander angle back into pond
+    const pad=60;
+    if(k.x<pad)      { k.vx+=0.18; k.wanderAngle=(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    if(k.x>W-pad)    { k.vx-=0.18; k.wanderAngle=Math.PI+(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    if(k.y<pad)      { k.vy+=0.18; k.wanderAngle=Math.PI*0.5+(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    if(k.y>H-pad)    { k.vy-=0.18; k.wanderAngle=-Math.PI*0.5+(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    // hard clamp so they can never escape
+    k.x = Math.max(pad*0.5, Math.min(W-pad*0.5, k.x));
+    k.y = Math.max(pad*0.5, Math.min(H-pad*0.5, k.y));
+  });
+}
+
+function updateTurtles(dt) {
+  turtles.forEach(t => {
+    t.legPhase += dt*0.0008;
+    t.wanderAngle += (Math.random()-0.5)*0.015;
+    t.vx += Math.cos(t.wanderAngle)*0.003;
+    t.vy += Math.sin(t.wanderAngle)*0.003;
+    t.vx *= 0.994; t.vy *= 0.994;
+    const spd=Math.hypot(t.vx,t.vy);
+    if(spd>0.18){t.vx*=0.18/spd;t.vy*=0.18/spd;}
+    t.x+=t.vx; t.y+=t.vy;
+    if(Math.abs(t.vx)>0.01||Math.abs(t.vy)>0.01) t.facing=Math.atan2(t.vy,t.vx);
+    const pad=60;
+    if(t.x<pad)      { t.vx+=0.12; t.wanderAngle=(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    if(t.x>W-pad)    { t.vx-=0.12; t.wanderAngle=Math.PI+(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    if(t.y<pad)      { t.vy+=0.12; t.wanderAngle=Math.PI*0.5+(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    if(t.y>H-pad)    { t.vy-=0.12; t.wanderAngle=-Math.PI*0.5+(Math.random()*Math.PI*0.8)-Math.PI*0.4; }
+    t.x = Math.max(pad*0.5, Math.min(W-pad*0.5, t.x));
+    t.y = Math.max(pad*0.5, Math.min(H-pad*0.5, t.y));
+  });
+}
+
+function drawKoi(k) {
+  const depthAlpha = 0.75 - k.depth*0.35; // clearer at shallow depths
+  const blurAmt    = k.depth * 1.5;        // less blur
+  const L = k.length;
+
+  ctx.save();
+  ctx.translate(k.x, k.y);
+  ctx.rotate(k.facing);
+  ctx.globalAlpha = depthAlpha;
+  if(blurAmt>0.5){ ctx.filter=`blur(${blurAmt.toFixed(1)}px)`; }
+
+  const tailWag = Math.sin(k.tailPhase)*0.28;
+
+  // tail fin
+  ctx.save(); ctx.rotate(tailWag*1.4);
+  ctx.fillStyle = k.bodyCol.replace(/[\d.]+\)$/,'0.6)');
+  ctx.beginPath();
+  ctx.moveTo(-L*0.38,0);
+  ctx.bezierCurveTo(-L*0.6,-L*0.18, -L*0.72,-L*0.22, -L*0.68,0);
+  ctx.bezierCurveTo(-L*0.72,L*0.22, -L*0.6,L*0.18, -L*0.38,0);
+  ctx.fill();
+  ctx.restore();
+
+  // body
+  const bg = ctx.createRadialGradient(L*0.05,0,0, 0,0,L*0.42);
+  bg.addColorStop(0, k.bodyCol);
+  bg.addColorStop(1, k.bodyCol.replace(/[\d.]+\)$/,'0.2)'));
+  ctx.fillStyle=bg;
+  ctx.beginPath();
+  ctx.ellipse(0,0,L*0.42,L*0.14,0,0,Math.PI*2);
+  ctx.fill();
+
+  // colour spots
+  k.spots.forEach(s => {
+    ctx.fillStyle=k.spotCol;
+    ctx.beginPath();
+    ctx.ellipse(L*0.3-s.t*L, s.side*L, L*s.r, L*s.r*0.7, 0, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // pectoral fin
+  ctx.save(); ctx.rotate(-0.2+Math.sin(k.tailPhase*0.7)*0.15);
+  ctx.fillStyle=k.bodyCol.replace(/[\d.]+\)$/,'0.45)');
+  ctx.beginPath();
+  ctx.ellipse(L*0.08,L*0.12,L*0.12,L*0.04,-0.5,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // dorsal fin
+  ctx.fillStyle=k.bodyCol.replace(/[\d.]+\)$/,'0.5)');
+  ctx.beginPath();
+  ctx.moveTo(L*0.1,0); ctx.lineTo(L*0.0,-L*0.12); ctx.lineTo(-L*0.12,0); ctx.closePath(); ctx.fill();
+
+  // head
+  ctx.fillStyle=k.bodyCol;
+  ctx.beginPath(); ctx.ellipse(L*0.38,0,L*0.1,L*0.1,0,0,Math.PI*2); ctx.fill();
+  // eye
+  ctx.fillStyle='rgba(10,5,2,0.8)';
+  ctx.beginPath(); ctx.arc(L*0.41,-L*0.05,L*0.025,0,Math.PI*2); ctx.fill();
+
+  ctx.filter='none';
+  ctx.restore();
+}
+
+function drawTurtle(t) {
+  const depthAlpha = 0.72 - t.depth*0.3;  // much more visible
+  const blurAmt    = t.depth * 1.2;        // subtle blur only
+  const r = t.r;
+
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  ctx.rotate(t.facing);
+  ctx.globalAlpha = depthAlpha;
+  if(blurAmt>0.5){ ctx.filter=`blur(${blurAmt.toFixed(1)}px)`; }
+
+  const legSwing = Math.sin(t.legPhase)*0.3;
+
+  // legs
+  [[-0.4,-0.85],[-0.4,0.85],[0.3,-0.85],[0.3,0.85]].forEach(([lx,ly],i)=>{
+    const swing = (i<2?1:-1)*legSwing*(i%2===0?1:-1);
+    ctx.save(); ctx.translate(lx*r, ly*r); ctx.rotate(swing);
+    ctx.fillStyle='rgba(50,75,30,0.7)';
+    ctx.beginPath(); ctx.ellipse(0,ly>0?r*0.3:-r*0.3,r*0.22,r*0.12,ly>0?0.3:-0.3,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+
+  // shell base
+  ctx.fillStyle='rgba(40,60,25,0.75)';
+  ctx.beginPath(); ctx.ellipse(0,0,r,r*0.78,0,0,Math.PI*2); ctx.fill();
+
+  // shell plates
+  const plateCol='rgba(55,80,35,0.65)';
+  ctx.strokeStyle='rgba(25,40,15,0.5)'; ctx.lineWidth=0.8;
+  [[0,0,r*0.4,r*0.32],[-r*0.38,-r*0.22,r*0.25,r*0.2],[r*0.38,-r*0.22,r*0.25,r*0.2],
+   [-r*0.38,r*0.22,r*0.25,r*0.2],[r*0.38,r*0.22,r*0.25,r*0.2]].forEach(([px,py,prx,pry])=>{
+    ctx.fillStyle=plateCol;
+    ctx.beginPath(); ctx.ellipse(px,py,prx,pry,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  });
+
+  // head
+  ctx.fillStyle='rgba(55,80,30,0.72)';
+  ctx.beginPath(); ctx.ellipse(r*0.72,0,r*0.28,r*0.22,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(8,5,2,0.8)';
+  ctx.beginPath(); ctx.arc(r*0.9,-r*0.06,r*0.05,0,Math.PI*2); ctx.fill();
+
+  ctx.filter='none';
+  ctx.restore();
+}
+
+function drawSubsurface() {
+  // draw all koi and turtles — they live below the surface
+  // sort by depth so deepest draw first
+  const subEntities = [
+    ...koi.map(k=>({...k,_type:'koi'})),
+    ...turtles.map(t=>({...t,_type:'turtle'})),
+  ].sort((a,b)=>b.depth-a.depth);
+
+  subEntities.forEach(e => {
+    if(e._type==='koi') drawKoi(e);
+    else drawTurtle(e);
+  });
+
+  // water surface overlay — semi-transparent teal wash to give depth illusion
+  ctx.save();
+  ctx.fillStyle='rgba(8,35,28,0.28)';
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+}
+
+
+
+function drawWaves() {
+  waves.forEach(w => {
+    ctx.save();
+    ctx.strokeStyle = hslStr(w.col, w.alpha);
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = hslStr(w.col, 0.6);
+    ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = hslStr(p.col, 1);
+    ctx.shadowColor = hslStr(p.col, 0.8);
+    ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawSprite() {
+  const pulse = Math.sin(sprite.pulsePhase) * 0.18 + 1.0;
+  const extraPulse = sprite.pulseAmt > 0 ? sprite.pulseAmt * 0.4 : 0;
+  const size = 13 * (pulse + extraPulse);
+
+  // trail
+  sprite.trail.forEach((pt, i) => {
+    const t = 1 - i/sprite.trail.length;
+    const r = size * t * 0.5;
+    ctx.save();
+    ctx.globalAlpha = t * 0.18;
+    if(sprite.noteCol && sprite.noteFade>0) {
+      ctx.fillStyle = hslStr(sprite.noteCol, 1);
+    } else {
+      ctx.fillStyle = 'rgba(255,200,80,1)';
+    }
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+
+  // outer glow
+  ctx.save();
+  ctx.globalAlpha = sprite.noteFade>0 ? 0.5+sprite.noteFade*0.4 : 0.35;
+  const grd2 = ctx.createRadialGradient(sprite.x,sprite.y,0,sprite.x,sprite.y,52);
+  if(sprite.noteCol && sprite.noteFade>0) {
+    grd2.addColorStop(0, hslStr(sprite.noteCol, 0.5));
+    grd2.addColorStop(1,'rgba(0,0,0,0)');
+  } else {
+    grd2.addColorStop(0,'rgba(255,200,80,0.25)');
+    grd2.addColorStop(1,'rgba(0,0,0,0)');
+  }
+  ctx.fillStyle=grd2;
+  ctx.beginPath(); ctx.arc(sprite.x,sprite.y,52,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // orb
+  ctx.save();
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = sprite.noteCol && sprite.noteFade>0
+    ? hslStr(sprite.noteCol, sprite.noteFade*0.8)
+    : 'rgba(255,200,80,0.6)';
+
+  const orb = ctx.createRadialGradient(sprite.x-size*0.3,sprite.y-size*0.3,0, sprite.x,sprite.y,size);
+  orb.addColorStop(0,'rgba(255,255,230,0.98)');
+  orb.addColorStop(0.3,'rgba(255,215,100,0.88)');
+  orb.addColorStop(0.7,'rgba(220,155,40,0.6)');
+  orb.addColorStop(1,'rgba(180,100,20,0)');
+  ctx.fillStyle=orb;
+  ctx.beginPath(); ctx.arc(sprite.x,sprite.y,size,0,Math.PI*2); ctx.fill();
+
+  // core
+  ctx.fillStyle='rgba(255,255,245,0.95)';
+  ctx.beginPath(); ctx.arc(sprite.x-size*0.15,sprite.y-size*0.15, size*0.28,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawVignette() {
+  const vig = ctx.createRadialGradient(W/2,H/2,H*0.28, W/2,H/2,W*0.76);
+  vig.addColorStop(0,'rgba(0,0,0,0)');
+  vig.addColorStop(1,'rgba(6,4,1,0.75)');
+  ctx.fillStyle=vig;
+  ctx.fillRect(0,0,W,H);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CURSOR FIREFLY — silver/white, tethered to mouse with elastic lag
+// ─────────────────────────────────────────────────────────────────────────────
+const cursorFly = {
+  x: -100, y: -100,       // off-screen until mouse enters
+  vx: 0, vy: 0,
+  targetX: -100, targetY: -100,
+  blinkPhase: Math.random()*Math.PI*2,
+  blinkSpeed: 0.0014,
+  visible: false,          // becomes true once mouse enters canvas
+  trail: [],
+};
+
+// track raw mouse position separately — always, not just on click
+document.addEventListener('mousemove', e => {
+  const pos = getTouchPos(e);
+  cursorFly.targetX = pos.x;
+  cursorFly.targetY = pos.y;
+  cursorFly.visible = true;
+  if(sprite.touchActive) sprite.touchTarget = pos;
+});
+document.addEventListener('mouseleave', () => {
+  cursorFly.visible = false;
+  sprite.touchActive = false;
+});
+document.addEventListener('mouseenter', e => {
+  cursorFly.visible = true;
+});
+
+function getTouchPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - rect.left) * scaleX,
+    y: (src.clientY - rect.top)  * scaleY,
+  };
+}
+
+function isOnPanel(e) {
+  const panel  = document.getElementById('soundPanel');
+  const toggle = document.getElementById('soundToggle');
+  return toggle.contains(e.target) || panel.contains(e.target);
+}
+
+document.addEventListener('mousedown', e => {
+  if(isOnPanel(e)) return;
+  sprite.touchTarget = getTouchPos(e);
+  sprite.touchActive = true;
+});
+document.addEventListener('mouseup', () => { sprite.touchActive = false; });
+
+document.addEventListener('touchstart', e => {
+  if(isOnPanel(e)) return;
+  e.preventDefault();
+  sprite.touchTarget = getTouchPos(e);
+  sprite.touchActive = true;
+}, {passive:false});
+document.addEventListener('touchmove', e => {
+  if(isOnPanel(e)) return;
+  e.preventDefault();
+  sprite.touchTarget = getTouchPos(e);
+}, {passive:false});
+document.addEventListener('touchend', () => { sprite.touchActive = false; });
+
+function updateCursorFly(dt) {
+  if(!cursorFly.visible) return;
+  const dx = cursorFly.targetX - cursorFly.x;
+  const dy = cursorFly.targetY - cursorFly.y;
+  cursorFly.vx += dx * 0.08;
+  cursorFly.vy += dy * 0.08;
+  cursorFly.vx *= 0.72;
+  cursorFly.vy *= 0.72;
+  cursorFly.x += cursorFly.vx;
+  cursorFly.y += cursorFly.vy;
+  cursorFly.blinkPhase += cursorFly.blinkSpeed * dt;
+  cursorFly.trail.unshift({x: cursorFly.x, y: cursorFly.y});
+  if(cursorFly.trail.length > 14) cursorFly.trail.pop();
+}
+
+function drawCursorFly() {
+  if(!cursorFly.visible) return;
+
+  const rawBlink = Math.sin(cursorFly.blinkPhase);
+  const blinkAlpha = rawBlink > 0.2 ? Math.pow((rawBlink-0.2)/0.8, 0.5) : 0;
+  // always at least faintly visible so cursor is always findable
+  const alpha = Math.max(0.25, blinkAlpha);
+  const size  = 2.2 + blinkAlpha * 1.4;
+
+  // wispy silver trail
+  cursorFly.trail.forEach((pt, i) => {
+    const t = (1 - i/cursorFly.trail.length) * alpha;
+    ctx.save();
+    ctx.globalAlpha = t * 0.18;
+    ctx.fillStyle = 'rgba(220,235,255,1)';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, size * t * 0.7, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // soft silver halo
+  ctx.save();
+  const haloR = size * (4 + blinkAlpha * 6);
+  const halo = ctx.createRadialGradient(cursorFly.x, cursorFly.y, 0, cursorFly.x, cursorFly.y, haloR);
+  halo.addColorStop(0,   `rgba(200,220,255,${alpha * 0.5})`);
+  halo.addColorStop(0.4, `rgba(180,205,255,${alpha * 0.18})`);
+  halo.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(cursorFly.x, cursorFly.y, haloR, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // bright core
+  ctx.save();
+  ctx.shadowColor  = `rgba(210,228,255,${alpha})`;
+  ctx.shadowBlur   = 10;
+  ctx.globalAlpha  = alpha;
+  const orb = ctx.createRadialGradient(
+    cursorFly.x - size*0.3, cursorFly.y - size*0.3, 0,
+    cursorFly.x, cursorFly.y, size * 1.8
+  );
+  orb.addColorStop(0,   'rgba(255,255,255,1)');
+  orb.addColorStop(0.3, 'rgba(220,235,255,0.9)');
+  orb.addColorStop(0.7, 'rgba(180,210,255,0.4)');
+  orb.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = orb;
+  ctx.beginPath(); ctx.arc(cursorFly.x, cursorFly.y, size * 1.8, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN LOOP
+// ─────────────────────────────────────────────────────────────────────────────
+let lastTime = 0;
+let running = false;
+
+function loop(ts) {
+  if(!running) return;
+  const dt = Math.min(ts - lastTime, 50);
+  lastTime = ts;
+
+  // update
+  updateSprite(dt);
+  updateFireflies(dt);
+  updateCursorFly(dt);
+  updateGhosts(dt);
+  updateObjects(dt);
+  updateKoi(dt);
+  updateTurtles(dt);
+  updateWaves(dt);
+  updateParticles(dt);
+  checkCollisions();
+
+  // replenish occasionally
+  if(ts - lastReplenish > 4000) {
+    replenishObjects();
+    lastReplenish = ts;
+  }
+
+  // draw
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(bgCanvas, 0, 0, W, H);
+  drawSubsurface();   // koi + turtles + surface wash
+  drawObjects();
+  drawWaves();
+  drawParticles();
+  drawGhosts();
+  drawFireflies();
+  drawSprite();
+  drawVignette();
+  drawCursorFly(); // above vignette — always visible
+
+  requestAnimationFrame(loop);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FULLSCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+const fsBtn  = document.getElementById('fullscreenToggle');
+const fsIcon = document.getElementById('fsIcon');
+
+const FS_ENTER = `<path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/>`;
+const FS_EXIT  = `<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>`;
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  if(el.requestFullscreen)            el.requestFullscreen();
+  else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  else if(el.mozRequestFullScreen)    el.mozRequestFullScreen();
+}
+
+function exitFullscreen() {
+  if(document.exitFullscreen)            document.exitFullscreen();
+  else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+  else if(document.mozCancelFullScreen)  document.mozCancelFullScreen();
+}
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+}
+
+fsBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  isFullscreen() ? exitFullscreen() : enterFullscreen();
+});
+
+document.addEventListener('fullscreenchange',       updateFsIcon);
+document.addEventListener('webkitfullscreenchange', updateFsIcon);
+document.addEventListener('mozfullscreenchange',    updateFsIcon);
+
+function updateFsIcon() {
+  fsIcon.innerHTML = isFullscreen() ? FS_EXIT : FS_ENTER;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOUND PANEL UI
+// ─────────────────────────────────────────────────────────────────────────────
+const soundToggle = document.getElementById('soundToggle');
+const soundPanel  = document.getElementById('soundPanel');
+
+soundToggle.addEventListener('click', e => {
+  e.stopPropagation(); // prevent document click from closing immediately
+  const open = soundPanel.classList.toggle('open');
+  soundToggle.classList.toggle('open', open);
+});
+
+soundPanel.addEventListener('click', e => {
+  e.stopPropagation(); // clicks inside panel don't close it
+});
+
+// Close panel if clicking outside
+document.addEventListener('click', e => {
+  soundPanel.classList.remove('open');
+  soundToggle.classList.remove('open');
+});
+
+// Instrument buttons
+document.querySelectorAll('[data-instr]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-instr]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    soundSettings.instrument = btn.dataset.instr;
+  });
+});
+
+// Mood buttons
+document.querySelectorAll('[data-mood]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-mood]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    soundSettings.mood = btn.dataset.mood;
+  });
+});
+
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  initAudio();
+  buildBackground();
+  populateObjects();
+  initSprite();
+  initFireflies();
+  initKoi();
+  initTurtles();
+  running = true;
+  document.getElementById('start').style.display='none';
+  enterFullscreen();
+  requestAnimationFrame(ts => { lastTime=ts; loop(ts); });
+});
+</script>
+</body>
+</html>
